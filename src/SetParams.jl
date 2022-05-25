@@ -46,13 +46,15 @@
     brugg::Float64 = 0
     k::Float64 = 0
     cs_max::Float64 = 0
+    cs_0::Float64 = 0
     Rs::Float64 = 0
+    as::Float64 = 0
     sig::Float64 = 0
     Eac_D::Float64 = 0
     Eac_k::Float64 = 0
     alpha::Float64 = 0
-    OCP::Function = x-> 0
-    dOCP::Function = x-> 0
+    OCP::Function = x-> 0.0
+    dOCP::Function = x-> 0.0
 end
 
 @with_kw mutable struct Separator
@@ -74,7 +76,7 @@ end
 end
 
 @with_kw mutable struct Electrolyte
-    De::Float64 = 0
+    De::Function = x-> 0
     rho::Float64 = 0 
     heat_Q::Float64 = 0
     tplus::Float64 = 0
@@ -135,6 +137,7 @@ end
     ce::Float64 = 0
     k_p::Float64 = 0
     k_n::Float64 = 0
+    I_typ::Float64 = 0
 end
 
 @with_kw mutable struct Params
@@ -160,8 +163,11 @@ function ChooseCell(CellType::String="LG M50")
     if CellType == "LG M50"
         include("../src/data/LGM50.jl") # pathof(JuBat)
     end
+    param_dim.PE.as = 3 * (1 - param_dim.PE.eps) / param_dim.PE.Rs
+    param_dim.NE.as = 3 * (1 - param_dim.NE.eps) / param_dim.NE.Rs
+    param_dim.scale.I_typ = param_dim.cell.I1C / param_dim.cell.length / param_dim.cell.width / param_dim.cell.no_layers
     param_dim.scale.L = param_dim.PE.thickness + param_dim.NE.thickness + param_dim.SP.thickness;
-    param_dim.scale.j = param_dim.cell.I1C / param_dim.scale.a0 / param_dim.scale.L;
+    param_dim.scale.j = param_dim.scale.I_typ / param_dim.scale.a0 / param_dim.scale.L;
     param_dim.scale.Ds_p = param_dim.scale.r0 / param_dim.scale.F / param_dim.PE.cs_max * param_dim.scale.j;
     param_dim.scale.Ds_n = param_dim.scale.r0 / param_dim.scale.F / param_dim.NE.cs_max * param_dim.scale.j;
     param_dim.scale.ts_p = param_dim.scale.F * param_dim.PE.cs_max * param_dim.scale.r0 / param_dim.scale.j / param_dim.scale.t0;
@@ -169,7 +175,7 @@ function ChooseCell(CellType::String="LG M50")
     param_dim.scale.te = param_dim.scale.F * param_dim.EL.ce0 / param_dim.scale.a0 / param_dim.scale.j / param_dim.scale.t0;
     param_dim.scale.De = param_dim.scale.a0 * param_dim.scale.L^2 / param_dim.scale.F / param_dim.EL.ce0 * param_dim.scale.j;
     param_dim.scale.phi = param_dim.scale.T0 * param_dim.scale.R / param_dim.scale.F;
-    param_dim.scale.sig = param_dim.scale.L * param_dim.cell.I1C / param_dim.scale.phi;
+    param_dim.scale.sig = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi;
     param_dim.scale.kappa = param_dim.scale.L^2 * param_dim.scale.a0;
     param_dim.scale.cp_max = param_dim.PE.cs_max;
     param_dim.scale.cn_max = param_dim.NE.cs_max;
@@ -191,6 +197,7 @@ function NormaliseParam(param_dim::Params)
     # posotove electrode
     param.PE.theta_100 = param_dim.PE.theta_100
     param.PE.theta_0 = param_dim.PE.theta_0;
+    param.PE.cs_0 = param_dim.PE.cs_0 / param_dim.PE.cs_max;
     param.PE.thickness = param_dim.PE.thickness / param.scale.L; 
     param.PE.Ds = param_dim.PE.Ds / param.scale.Ds_p;
     param.PE.eps = param_dim.PE.eps;
@@ -200,10 +207,12 @@ function NormaliseParam(param_dim::Params)
     param.PE.Rs = param_dim.PE.Rs / param.scale.r0;
     param.PE.sig = param_dim.PE.sig / param.scale.sig;
     param.PE.OCP = x-> param_dim.PE.OCP(x) / param.scale.phi;
+    param.PE.as = param_dim.PE.as / param.scale.a0
 
     # negative electrode
     param.NE.theta_100 = param_dim.NE.theta_100;
     param.NE.theta_0 = param_dim.NE.theta_0;
+    param.NE.cs_0 = param_dim.NE.cs_0 / param_dim.NE.cs_max;
     param.NE.thickness = param_dim.NE.thickness / param.scale.L;
     param.NE.Ds = param_dim.NE.Ds / param.scale.Ds_n;
     param.NE.eps = param_dim.NE.eps;
@@ -213,6 +222,7 @@ function NormaliseParam(param_dim::Params)
     param.NE.Rs = param_dim.NE.Rs / param.scale.r0;
     param.NE.sig = param_dim.NE.sig / param.scale.sig;
     param.NE.OCP =x-> param_dim.NE.OCP(x) / param.scale.phi;
+    param.NE.as = param_dim.PE.as / param.scale.a0
 
     # separator
     param.SP.thickness = param_dim.SP.thickness / param.scale.L;
@@ -229,7 +239,7 @@ function NormaliseParam(param_dim::Params)
     param.NCC.sig = param_dim.NCC.sig / param.scale.sig;
 
     # electrolyte
-    param.EL.De = param_dim.EL.De / param.scale.De;
+    param.EL.De = x-> param_dim.EL.De(x) / param.scale.De;
     param.EL.tplus = param_dim.EL.tplus;
     param.EL.ce0 = param_dim.EL.ce0 / param.scale.ce;
 

@@ -21,24 +21,28 @@ function Solve(case::Case)
     # initialisation
     dt = deepcopy(dt_min)
     ddt = deepcopy(dt_min)
-    t = t0 + dt  
+    t = t0 + dt
+    num = round(Integer, (t_end - t0)/dt * 2) 
+    vt = 1
+    variables = StandardVariables(case, num)
+    variables["time step"] = vt
     yold = y0 
-    M, Kold, Fold = CallModel(case, yold, t) 
+    M, Kold, Fold, variables = CallModel(case, y0, t, variables) 
     Mt = M - theta * Kold * dt 
     Kt = (1 - theta) * Kold * dt + M 
     Ft = Fold * dt 
-    num = round(Integer, (t_end - t0)/dt * 2)
+
     yt = zeros(size(M,1), num) 
-    time = zeros(num,1) 
-    v = 1  
     yt[:,1] = y0 
-    vt = 2 
+    time = zeros(1,num) 
+    v = 1  
+    vt = vt + 1 
     print( "start to solve the problem \n")
 
     # run the model
     while t <= t_end
         if case.opt.Jacobi == "update"
-            Mnew, Knew, Fnew = CallModel(case, yold, t) 
+            Mnew, Knew, Fnew = CallModel(case, yold, t, variables) 
             Mt = M - theta * Knew * dt 
             Kt = (1 - theta) * Kold * dt + M 
             Ft = theta * Fnew * dt + (1 - theta) * Fold * dt 
@@ -49,11 +53,11 @@ function Solve(case::Case)
         if case.opt.OutputType == "auto" || case.opt.OutputTime == []
             v = v + 1 
             yt[:,v] = ynew 
-            time[v,1] = t 
+            time[1, v] = t 
         elseif abs(t - case.opt.OutputTime[vt]) < 1e-7
             v = v + 1 
             yt[:,v] = ynew 
-            time[v,1] = t 
+            time[1, v] = t 
             vt = vt + 1 
         end
         
@@ -76,30 +80,60 @@ function Solve(case::Case)
     end
  
     yt = yt[:,1:v] 
-    time = time[1:v,1] 
-    result = PostProcessing(case, yt, time) 
+    variables["time"] = time[1,1:v] 
+    result = PostProcessing(case, yt, variables) 
     print("finish the simulation\n") 
     return result
 end
 
-function CallModel(case::Case, y::Array{Float64}, t::Float64)
+function CallModel(case::Case, y::Array{Float64}, t::Float64, variables::Dict{String, Any})
     if case.opt.Model == "SPM"
-        M, K, F = SPM(case, y, t) 
+        M, K, F, variables = SPM(case, y, t, variables) 
     else
         error( "Error: $(case.opt.Model) model has not been implement!\n ")
     end
-    return M, K, F
+    return M, K, F, variables
 end
 
 function ModelInitial(case::Case)
     if case.opt.Model == "SPM"
         n1 = case.mesh["negative particle"].nlen
-        csn100 = case.param.NE.theta_100
+        csn0 = case.param.NE.cs_0
         n2 = case.mesh["positive particle"].nlen
-        csp100 = case.param.PE.theta_100
-        y0 = [ones(Float64, n1, 1) * csn100;  ones(Float64, n2, 1) * csp100]
+        csp0 = case.param.PE.cs_0
+        y0 = [ones(Float64, n1, 1) * csn0;  ones(Float64, n2, 1) * csp0]
     else
         error( "Error: $(case.opt.Model{1}) model has not been implement!\n ")
     end
     return y0
+end
+
+
+function StandardVariables(case::Case, num::Integer)
+    n1 = case.mesh["negative particle"].nlen
+    n2 = case.mesh["positive particle"].nlen
+    if case.opt.Model == "SPM"
+        variables = Dict(
+            "negative particle lithium concentration" => zeros(n1, num),
+            "positive particle lithium concentration" => zeros(n2, num),
+            "negative electrode potential" => zeros(1, num),
+            "positive electrode potential" => zeros(1, num),
+            "negative particle averaged lithium concentration" => zeros(1, num),
+            "positive particle averaged lithium concentration" => zeros(1, num),
+            "negative particle surface lithium concentration" => zeros(1, num),
+            "positive particle surface lithium concentration" => zeros(1, num),
+            "negative electrode porosity" => zeros(1, num),
+            "positive electrode porosity" => zeros(1, num),
+            #"separator porosity" => zeros(1, num),
+            "negative electrode temperature" => zeros(1, num),
+            "positive electrode temperature" => zeros(1, num),  
+            "negative electrode exchange current density" => zeros(1, num),
+            "positive electrode exchange current density" => zeros(1, num), 
+            "cell voltage" => zeros(1, num),
+            "time step" => 0          
+        )
+    else
+        error( "Error: $(case.opt.Model{1}) model has not been implement!\n ")
+    end
+    return variables
 end
