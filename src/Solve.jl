@@ -21,44 +21,46 @@ function Solve(case::Case)
     # initialisation
     dt = deepcopy(dt_min)
     ddt = deepcopy(dt_min)
-    t = t0 + dt
+   
     num = round(Integer, (t_end - t0)/dt * 2) 
-    vt = 1
+    v = 1  
     variables = StandardVariables(case, num)
-    variables["time step"] = vt
     yold = y0 
-    M, Kold, Fold, variables = CallModel(case, y0, t, variables) 
-    Mt = M - theta * Kold * dt 
-    Kt = (1 - theta) * Kold * dt + M 
-    Ft = Fold * dt 
-
+    SPM_update!(case, variables, v, y0, t0) 
+    M = CallModel(case, "M") 
+    Kold= CallModel(case, "K") 
+    Fold = CallModel_BC(case, t0) 
+  
     yt = zeros(size(M,1), num) 
     yt[:,1] = y0 
     time = zeros(1,num) 
-    v = 1  
-    vt = vt + 1 
+    t = t0 + dt
+    vt = 2 
     print( "start to solve the problem \n")
 
     # run the model
     while t <= t_end
         if case.opt.Jacobi == "update"
-            Mnew, Knew, Fnew = CallModel(case, yold, t, variables) 
-            Mt = M - theta * Knew * dt 
-            Kt = (1 - theta) * Kold * dt + M 
-            Ft = theta * Fnew * dt + (1 - theta) * Fold * dt 
+            Knew = CallModel(case, "F") 
+        else
+            Knew = Kold
         end
+        Fnew = CallModel_BC(case, t)
+        Mt = M - theta * Knew * dt 
+        Kt = (1 - theta) * Kold * dt + M 
+        Ft = theta * Fnew * dt + (1 - theta) * Fold * dt 
+
         ynew = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * yold + Ft) 
 
         # record the results
-        if case.opt.OutputType == "auto" || case.opt.OutputTime == []
+        if case.opt.OutputType == "auto" || case.opt.OutputTime == [] || abs(t - case.opt.OutputTime[vt]) < 1e-7
             v = v + 1 
             yt[:,v] = ynew 
             time[1, v] = t 
-        elseif abs(t - case.opt.OutputTime[vt]) < 1e-7
-            v = v + 1 
-            yt[:,v] = ynew 
-            time[1, v] = t 
-            vt = vt + 1 
+            SPM_update!(case, variables, v, ynew, t) 
+            if length(case.opt.OutputTime) > 0 && abs(t - case.opt.OutputTime[vt]) < 1e-7
+                vt = vt + 1 
+            end
         end
         
         # adjust time incremental step dt
@@ -75,24 +77,46 @@ function Solve(case::Case)
 		        ddt = deepcopy(dt_min)
             end
         end
+
         yold = ynew 
         t = t + dt 
+        if case.opt.Jacobi == "update"
+            Kold = Knew 
+        end
     end
  
     yt = yt[:,1:v] 
-    variables["time"] = time[1,1:v] 
-    result = PostProcessing(case, yt, variables) 
+    result = PostProcessing(case, yt, variables, v) 
     print("finish the simulation\n") 
     return result
 end
 
-function CallModel(case::Case, y::Array{Float64}, t::Float64, variables::Dict{String, Any})
+function CallModel(case::Case, opt::String)
     if case.opt.Model == "SPM"
-        M, K, F, variables = SPM(case, y, t, variables) 
+        K = SPM(case, opt) 
     else
         error( "Error: $(case.opt.Model) model has not been implement!\n ")
     end
-    return M, K, F, variables
+    return K
+end
+
+function CallModel_BC(case::Case, t::Float64)
+    if case.opt.Model == "SPM"
+        F = SPM_BC(case, t) 
+    else
+        error( "Error: $(case.opt.Model) model has not been implement!\n ")
+    end
+    return F
+end
+
+
+function CallModel_update!(case::Case, variables::Dict{String, Any}, v::Integer, yt::Array{Float64}, t::Float64)
+    if case.opt.Model == "SPM"
+        SPM_update!(case, variables, v, yt, t) 
+    else
+        error( "Error: $(case.opt.Model) model has not been implement!\n ")
+    end
+
 end
 
 function ModelInitial(case::Case)
@@ -130,7 +154,7 @@ function StandardVariables(case::Case, num::Integer)
             "negative electrode exchange current density" => zeros(1, num),
             "positive electrode exchange current density" => zeros(1, num), 
             "cell voltage" => zeros(1, num),
-            "time step" => 0          
+            "time" => zeros(1, num),          
         )
     else
         error( "Error: $(case.opt.Model{1}) model has not been implement!\n ")

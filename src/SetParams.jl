@@ -163,8 +163,9 @@ function ChooseCell(CellType::String="LG M50")
     if CellType == "LG M50"
         include("../src/data/LGM50.jl") # pathof(JuBat)
     end
-    param_dim.PE.as = 3 * (1 - param_dim.PE.eps) / param_dim.PE.Rs
-    param_dim.NE.as = 3 * (1 - param_dim.NE.eps) / param_dim.NE.Rs
+    param_dim.PE.as = 3 * (1 - param_dim.PE.eps - param_dim.PE.eps_fi) / param_dim.PE.Rs
+    param_dim.NE.as = 3 * (1 - param_dim.NE.eps - param_dim.PE.eps_fi) / param_dim.NE.Rs
+    param_dim.cell.Total_surface = param_dim.cell.width * param_dim.cell.length
     param_dim.scale.I_typ = param_dim.cell.I1C / param_dim.cell.length / param_dim.cell.width / param_dim.cell.no_layers
     param_dim.scale.L = param_dim.PE.thickness + param_dim.NE.thickness + param_dim.SP.thickness;
     param_dim.scale.j = param_dim.scale.I_typ / param_dim.scale.a0 / param_dim.scale.L;
@@ -222,7 +223,7 @@ function NormaliseParam(param_dim::Params)
     param.NE.Rs = param_dim.NE.Rs / param.scale.r0;
     param.NE.sig = param_dim.NE.sig / param.scale.sig;
     param.NE.OCP =x-> param_dim.NE.OCP(x) / param.scale.phi;
-    param.NE.as = param_dim.PE.as / param.scale.a0
+    param.NE.as = param_dim.NE.as / param.scale.a0
 
     # separator
     param.SP.thickness = param_dim.SP.thickness / param.scale.L;
