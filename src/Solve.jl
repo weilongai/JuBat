@@ -1,7 +1,7 @@
 function Solve(case::Case)
     dt_min = case.opt.dt[1] / case.param. scale.t0 
     dt_max = case.opt.dt[2] / case.param. scale.t0 
-    RunTime = case.opt.Time / case.param. scale.t0 
+    RunTime = case.opt.time / case.param. scale.t0 
     t0 = RunTime[1] 
     t_end = RunTime[end] 
     if isempty(case.opt.y0)
@@ -9,41 +9,41 @@ function Solve(case::Case)
     else
         y0 = case.opt.y0 
     end
-    if case.opt.SolveType == "Crank-Nicolson"
+    if case.opt.solveType == "Crank-Nicolson"
         theta = 0.5 
-    elseif case.opt.SolveType == "forward"
+    elseif case.opt.solveType == "forward"
         theta = 0 
     elseif "backward"
         theta = 1 
     else
-        error( "Error: $(opt.Solve_type) difference scheme has not been implement!\n ") 
+        error( "Error: $(opt.solve_type) difference scheme has not been implemented!\n ") 
     end
     # initialisation
     dt = deepcopy(dt_min)
     ddt = deepcopy(dt_min)
    
-    num = round(Integer, (t_end - t0)/dt * 2) 
+    num = round(Int64, (t_end - t0)/dt * 2) 
     v = 1  
     variables = StandardVariables(case, num)
     yold = y0 
-    SPM_update!(case, variables, v, y0, t0) 
+    Variable_update!(case, variables, v, y0, t0)   
     M = CallModel(case, "M") 
     Kold= CallModel(case, "K") 
     Fold = CallModel_BC(case, t0) 
   
-    yt = zeros(size(M,1), num) 
+    yt = zeros(Float64, size(M,1), num) 
     yt[:,1] = y0 
-    time = zeros(1,num) 
+    time = zeros(Float64, 1,num) 
     t = t0 + dt
     vt = 2 
     print( "start to solve the problem \n")
 
     # run the model
     while t <= t_end
-        if case.opt.Jacobi == "update"
-            Knew = CallModel(case, "F") 
+        if case.opt.jacobi == "update"
+            Knew = CallModel(case, "K") 
         else
-            Knew = Kold
+            Knew = deepcopy(Kold)
         end
         Fnew = CallModel_BC(case, t)
         Mt = M - theta * Knew * dt 
@@ -53,35 +53,38 @@ function Solve(case::Case)
         ynew = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * yold + Ft) 
 
         # record the results
-        if case.opt.OutputType == "auto" || case.opt.OutputTime == [] || abs(t - case.opt.OutputTime[vt]) < 1e-7
+        if case.opt.outputType == "auto" || case.opt.outputTime == [] || abs(t - case.opt.outputTime[vt]) < 1e-7
             v = v + 1 
             yt[:,v] = ynew 
             time[1, v] = t 
-            SPM_update!(case, variables, v, ynew, t) 
-            if length(case.opt.OutputTime) > 0 && abs(t - case.opt.OutputTime[vt]) < 1e-7
+            Variable_update!(case, variables, v, ynew, t) 
+            if length(case.opt.outputTime) > 0 && abs(t - case.opt.outputTime[vt]) < 1e-7
                 vt = vt + 1 
             end
         end
         
         # adjust time incremental step dt
-        if case.opt.OutputTime != [] && t + dt > case.opt.OutputTime[vt] && t < case.opt.OutputTime[vt]
-            dt = abs(case.opt.OutputTime[vt] - t) 
-            vt = min(vt + 1, size(case.opt.OutputTime, 2)) 
+        if case.opt.outputTime != [] && t + dt > case.opt.outputTime[vt] && t < case.opt.outputTime[vt]
+            dt = abs(case.opt.outputTime[vt] - t) 
+            vt = min(vt + 1, size(case.opt.outputTime, 2)) 
 		elseif  case.opt.dtType == "auto"
-            test = norm(ynew - yold) / norm(yold) 
-            if test < case.opt.dtThreshold
+            change = norm(ynew - yold) / norm(yold) 
+            if change < case.opt.dtThreshold
 		        ddt = ddt*2
                 dt = min(ddt, dt_max) 
-            elseif test > 4 * case.opt.dtThreshold
+            elseif change > 4 * case.opt.dtThreshold
                 dt = deepcopy(dt_min)
 		        ddt = deepcopy(dt_min)
+            else
+                ddt = ddt/2
+                dt = max(ddt, dt_min)  
             end
         end
 
         yold = ynew 
         t = t + dt 
-        if case.opt.Jacobi == "update"
-            Kold = Knew 
+        if case.opt.jacobi == "update"
+            Kold = deepcopy(Knew) 
         end
     end
  
@@ -92,72 +95,48 @@ function Solve(case::Case)
 end
 
 function CallModel(case::Case, opt::String)
-    if case.opt.Model == "SPM"
+    if case.opt.model == "SPM"
         K = SPM(case, opt) 
+    elseif case.opt.model == "SPMe"
+        K = SPMe(case, opt)    
     else
-        error( "Error: $(case.opt.Model) model has not been implement!\n ")
+        error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end
     return K
 end
 
 function CallModel_BC(case::Case, t::Float64)
-    if case.opt.Model == "SPM"
+    if case.opt.model == "SPM"
         F = SPM_BC(case, t) 
+    elseif case.opt.model == "SPMe"
+        F = SPMe_BC(case, t)
     else
-        error( "Error: $(case.opt.Model) model has not been implement!\n ")
+        error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end
     return F
 end
 
 
-function CallModel_update!(case::Case, variables::Dict{String, Any}, v::Integer, yt::Array{Float64}, t::Float64)
-    if case.opt.Model == "SPM"
-        SPM_update!(case, variables, v, yt, t) 
-    else
-        error( "Error: $(case.opt.Model) model has not been implement!\n ")
-    end
-
-end
 
 function ModelInitial(case::Case)
-    if case.opt.Model == "SPM"
+    if case.opt.model == "SPM"
         n1 = case.mesh["negative particle"].nlen
         csn0 = case.param.NE.cs_0
         n2 = case.mesh["positive particle"].nlen
         csp0 = case.param.PE.cs_0
         y0 = [ones(Float64, n1, 1) * csn0;  ones(Float64, n2, 1) * csp0]
+    elseif case.opt.model == "SPMe"
+        n1 = case.mesh["negative particle"].nlen
+        csn0 = case.param.NE.cs_0
+        n2 = case.mesh["positive particle"].nlen
+        csp0 = case.param.PE.cs_0
+        n3 = case.mesh["electrolyte"].nlen
+        ce0 = case.param.EL.ce0
+        y0 = [ones(Float64, n1, 1) * csn0;  ones(Float64, n2, 1) * csp0; ones(Float64, n3, 1) * ce0]
     else
-        error( "Error: $(case.opt.Model{1}) model has not been implement!\n ")
+        error( "Error: $(case.opt.model{1}) model has not been implemented!\n ")
     end
     return y0
 end
 
 
-function StandardVariables(case::Case, num::Integer)
-    n1 = case.mesh["negative particle"].nlen
-    n2 = case.mesh["positive particle"].nlen
-    if case.opt.Model == "SPM"
-        variables = Dict(
-            "negative particle lithium concentration" => zeros(n1, num),
-            "positive particle lithium concentration" => zeros(n2, num),
-            "negative electrode potential" => zeros(1, num),
-            "positive electrode potential" => zeros(1, num),
-            "negative particle averaged lithium concentration" => zeros(1, num),
-            "positive particle averaged lithium concentration" => zeros(1, num),
-            "negative particle surface lithium concentration" => zeros(1, num),
-            "positive particle surface lithium concentration" => zeros(1, num),
-            "negative electrode porosity" => zeros(1, num),
-            "positive electrode porosity" => zeros(1, num),
-            #"separator porosity" => zeros(1, num),
-            "negative electrode temperature" => zeros(1, num),
-            "positive electrode temperature" => zeros(1, num),  
-            "negative electrode exchange current density" => zeros(1, num),
-            "positive electrode exchange current density" => zeros(1, num), 
-            "cell voltage" => zeros(1, num),
-            "time" => zeros(1, num),          
-        )
-    else
-        error( "Error: $(case.opt.Model{1}) model has not been implement!\n ")
-    end
-    return variables
-end

@@ -1,23 +1,24 @@
 mutable struct GaussPoint
     x::Array{Float64}
     xloc::Array{Float64}
-    weight::Array{Float64}
-    detJ::Array{Float64}
-    ele::Array{Integer}
+    weight::Vector{Float64}
+    detJ::Vector{Float64}
+    ele::Vector{Int64}
     Ni::Array{Float64}
     dNidx::Array{Float64}
+    order::Int64
 end
 
 mutable struct Mesh
     type::String
-    dimension::Integer
+    dimension::Int64
     node::Array{Float64}
-    nlen::Integer
-    element::Array{Integer}
+    nlen::Int64
+    element::Array{Int64}
     gs::GaussPoint
 end
 
-function SetMesh(domain::Any, num::Any, type::String, gsorder::Integer=4)
+function SetMesh(domain::Any, num::Any, type::String, gsorder::Int64=4)
 """
     A function to set up mesh
      inputs are 'domain, num, type, gsorder'
@@ -31,66 +32,100 @@ function SetMesh(domain::Any, num::Any, type::String, gsorder::Integer=4)
 
     if type == "L2"
             ele_node = 2
-            mesh = Mesh1D(domain, num, type, gsorder, ele_node)
+            mesh = Mesh1D(domain, num, type, gsorder)
     elseif type == "L3"
             ele_node = 3
-            mesh = Mesh1D(domain, num, type, gsorder, ele_node)
+            mesh = Mesh1D(domain, num, type, gsorder)
     else
             error("Error: element type $type has not been implemented!\n")
     end
     return mesh
 end
-    
 
-function Mesh1D(domain, num, type::String= "L2", gsorder::Integer= 4, ele_node::Integer= 2)
+function Mesh1D(domain::Vector{Float64}, num::Any, type::String= "L2", gsorder::Int64= 4)
 # to build 1D mesh and its gauss points
     dim = 1
     element_number = round(Int, sum(num))
-    node = zeros(element_number * (ele_node-1) + 1, dim)
-    type = type
-    dimension = dim
+    if type == "L2"
+        ele_node = 2
+    elseif type == "L3"
+        ele_node = 3
+    end
+    node = zeros(Float64, element_number * (ele_node-1) + 1, dim)
     v = 0
-    for i = 1:size(domain,1)
-        for j = 1:size(domain,2) - 1
-            dx = 1/num[i, j]/(ele_node - 1)
-            temp = collect(0:dx:1) .* (domain[1,j+1] - domain[1,j]) .+ domain[1,j]
-            len = num[i, j] * (ele_node - 1)
-            if j == 1
-                node[v + 1:v + len + 1, 1] = temp
-                v = v + len + 1
-            else
-                node[v + 1:v + len, 1] = temp[2:end,1]
-                v = v + len
-            end
-    
+    for i = 1:length(domain) - 1
+        dx = 1/num[i]/(ele_node - 1)
+        temp = collect(0:dx:1) .* (domain[i+1] - domain[i]) .+ domain[i]
+        len = num[i] * (ele_node - 1)
+        if i == 1
+            node[v + 1:v + len + 1, 1] = temp
+            v = v + len + 1
+        else
+            node[v + 1:v + len, 1] = temp[2:end,1]
+            v = v + len
         end
     end
     nlen = deepcopy(v)
-    element = zeros(Integer, element_number, ele_node)
+    element = zeros(Int64, element_number, ele_node)
     v = 0 
     ele = 0
     for i = 1: size(num,1)
-        for j = 1:size(num,2)
-            for k = 1:num[i,j]
-                ele = ele + 1
-                element[ele, 1:ele_node] = v + 1:v + ele_node
-                v = v + ele_node - 1
-            end
+        for j = 1:num[i]
+            ele = ele + 1
+            element[ele, 1:ele_node] = v + 1:v + ele_node
+            v = v + ele_node - 1
         end
-        v = v + 1
     end
     gs = GetGS(element[:,[1,ele_node]], node, gsorder, dim)
     mesh = Mesh(type, dim, node, nlen, element, gs)
     return mesh
 end
 
+function PickElement(mesh::Mesh, v::Vector{Int64})
+    """
+        pick elements from a mesh
+        Inputs = mesh::Mesh
+                v::Vector{Inveger}, the index of elements to be picked up
+        outputs = mesh1::Mesh
+            mesh1 = mesh(v), including the collection of Gaussian points
+    """
+    type = mesh.type
+    dim = mesh.dimension
+    node = mesh.node
+    nlen = mesh.nlen
+    if type == "L2"
+        ele_node = 2
+    elseif type == "L3"
+        ele_node = 3
+    end 
+    element = mesh.element[v,:]
+    gsorder = mesh.gs.order
+    gs = deepcopy(mesh.gs)
+    len = gsorder ^ dim
+    v_gs = zeros(Int64, length(v) * len)
+    gs.ele = zeros(Int64, length(v) * len)
+    for i = 1:len
+        v_gs[i:len:length(v) * len] = (v .- 1) .* len .+ i
+        gs.ele[i:len:length(v) * len] = 1:length(v)
+    end
+    gs.x = gs.x[v_gs,:]
+    gs.xloc = gs.xloc[v_gs,:]
+    gs.weight = gs.weight[v_gs]
+    gs.detJ = gs.detJ[v_gs]
+    gs.Ni = gs.Ni[v_gs,:]
+    gs.dNidx = gs.dNidx[v_gs,:]
+    nlen = length(unique(element))
+    mesh_picked = Mesh(type, dim, node, nlen, element, gs)
+    return mesh_picked
+end
 
-function GetGS(element::Array{Integer}, node::Array{Float64}, order::Integer, dimen::Integer, v=collect(1:size(element,1)))
+
+function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, dimen::Int64, v=collect(1:size(element,1)))
     total_num = size(element,1) * order ^ dimen
     x = zeros(Float64, total_num ,dimen)
-    weight = zeros(Float64, total_num, 1)
-    detJ = zeros(Float64, total_num, 1) 
-    ele = zeros(Integer, total_num, 1)
+    weight = zeros(Float64, total_num)
+    detJ = zeros(Float64, total_num) 
+    ele = zeros(Int64, total_num)
     xloc = zeros(Float64, total_num, dimen)
     if dimen==1
         type="L2"
@@ -119,11 +154,11 @@ function GetGS(element::Array{Integer}, node::Array{Float64}, order::Integer, di
         end
     end
     Ni, dNi = ShapeFunction1D(element, type, node, xloc, ele)
-    gs = GaussPoint(x, xloc, weight, detJ, ele, Ni, dNi)
+    gs = GaussPoint(x, xloc, weight, detJ, ele, Ni, dNi, order)
     return gs
 end
 
-function LagrangeBasis(type::String, dimen::Integer, coord::Array{Float64})
+function LagrangeBasis(type::String, dimen::Int64, coord::Array{Float64})
     N = zeros(Float64,2^dimen, 1)
     dNdxi = zeros(Float64, 2^dimen, dimen)
     if type == "L2"
@@ -179,14 +214,14 @@ function LagrangeBasis(type::String, dimen::Integer, coord::Array{Float64})
 end
 
 
-function GSweight(order::Integer, dimen::Integer)
+function GSweight(order::Int64, dimen::Int64)
     if (order>10 || order<0)
         disp("Order of quadrature too high for Gaussian Quadrature")
     end
-    r1pt = zeros(order,1) 
-    r1wt = zeros(order,1)
-    W = zeros(order^dimen,1)
-    Q = zeros(order^dimen,dimen)
+    r1pt = zeros(Float64, order) 
+    r1wt = zeros(Float64, order)
+    W = zeros(Float64, order^dimen)
+    Q = zeros(Float64, order^dimen,dimen)
     if order == 1
         r1pt[1] = 0.000000000000000
         r1wt[1] = 2.000000000000000
@@ -337,7 +372,7 @@ function GSweight(order::Integer, dimen::Integer)
     return W, Q
 end
 
-function ShapeFunction1D(element::Matrix{Integer}, type::String, node::Matrix{Float64}, xloc::Matrix{Float64}, v::Matrix{Integer})
+function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Float64}, xloc::Array{Float64}, v::Vector{Int64})
     if type == "L3"
             f1 = x-> (x .- 1).^2 / 4 
             f2 =  x-> (1 .- x.^2) / 2
