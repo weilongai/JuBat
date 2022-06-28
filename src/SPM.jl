@@ -19,10 +19,10 @@ function SPM_BC(case::Case, t::Float64)
     I = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
 
     flux1 = zeros(Float64, case.mesh["negative particle"].nlen, 1)
-    flux1[end] = I / param.NE.as / param.NE.thickness * param.NE.Rs^2
+    flux1[end] = I / param.NE.as / param.NE.thickness * param.NE.rs^2
 
     flux2 = zeros(Float64, case.mesh["positive particle"].nlen, 1)
-    flux2[end] = - I / param.PE.as / param.PE.thickness * param.PE.Rs^2
+    flux2[end] = - I / param.PE.as / param.PE.thickness * param.PE.rs^2
 
     F = [flux1; flux2]
     return F

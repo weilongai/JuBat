@@ -3,9 +3,9 @@ include("../src/JuBat.jl")
 
 param_dim = JuBat.ChooseCell("LG M50")
 opt = JuBat.Option()
-i=-25
+i=-5
 opt.Current = x-> i
-opt.time = [0 abs(5/i)*3600*0.7]
+opt.time = [0 abs(5/i)*3600]
 case = JuBat.SetCase(param_dim, opt)
 result = JuBat.Solve(case)
 

@@ -8,18 +8,18 @@ function SetCase(param_dim::Params, opt::Option)
     param = NormaliseParam(param_dim)
     if opt.model == "SPM"
         # negative particle
-        mesh1 = SetMesh([0, param.NE.Rs], opt.Nrn, opt.meshType, opt.gsOrder);
+        mesh1 = SetMesh([0, param.NE.rs], opt.Nrn, opt.meshType, opt.gsOrder);
         # positive particle
-        mesh2 = SetMesh([0, param.PE.Rs], opt.Nrp, opt.meshType, opt.gsOrder);
+        mesh2 = SetMesh([0, param.PE.rs], opt.Nrp, opt.meshType, opt.gsOrder);
         mesh = Dict("negative particle"=> mesh1, "positive particle"=>mesh2)
         index = Dict("csn"=> collect(1:opt.Nrn+1),"csp"=> collect(opt.Nrn + 2:opt.Nrn + opt.Nrp + 2))
 
     elseif opt.model == "SPMe" || opt.model == "DFN"
         # |--negative--|--separator--|--positive--|
         # negative particle
-        mesh1 = SetMesh([0, param.NE.Rs], opt.Nrn, opt.meshType, opt.gsOrder);
+        mesh1 = SetMesh([0, param.NE.rs], opt.Nrn, opt.meshType, opt.gsOrder);
         # positive particle
-        mesh2 = SetMesh([0, param.PE.Rs], opt.Nrp, opt.meshType, opt.gsOrder);
+        mesh2 = SetMesh([0, param.PE.rs], opt.Nrp, opt.meshType, opt.gsOrder);
         # electrolyte
         space = [0, param.NE.thickness,  param.NE.thickness + param.SP.thickness, param.PE.thickness + param.SP.thickness + param.NE.thickness]
         mesh3 = SetMesh(space, [opt.Nn, opt.Ns, opt.Np], opt.meshType, opt.gsOrder)

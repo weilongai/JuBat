@@ -39,9 +39,9 @@ function SPMe_BC(case::Case, t::Float64)
     j_n = I / param.NE.as / param.NE.thickness 
     j_p = - I / param.PE.as / param.PE.thickness
     flux_np = zeros(Float64, case.mesh["negative particle"].nlen, 1)
-    flux_np[end] = j_n * param.NE.Rs^2
+    flux_np[end] = j_n * param.NE.rs^2
     flux_pp = zeros(Float64, case.mesh["positive particle"].nlen, 1)
-    flux_pp[end] = j_p * param.PE.Rs^2
+    flux_pp[end] = j_p * param.PE.rs^2
 
     # electrolyte source term
     EL_mesh = case.mesh["electrolyte"]

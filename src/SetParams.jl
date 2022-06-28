@@ -47,7 +47,7 @@
     k::Float64 = 0
     cs_max::Float64 = 0
     cs_0::Float64 = 0
-    Rs::Float64 = 0
+    rs::Float64 = 0
     as::Float64 = 0
     sig::Float64 = 0
     Eac_D::Float64 = 0
@@ -170,8 +170,8 @@ function ChooseCell(CellType::String="LG M50")
     if CellType == "LG M50"
         include("../src/data/LGM50.jl") # pathof(JuBat)
     end
-    param_dim.PE.as = 3 * (1 - param_dim.PE.eps - param_dim.PE.eps_fi) / param_dim.PE.Rs
-    param_dim.NE.as = 3 * (1 - param_dim.NE.eps - param_dim.PE.eps_fi) / param_dim.NE.Rs
+    param_dim.PE.as = 3 * (1 - param_dim.PE.eps - param_dim.PE.eps_fi) / param_dim.PE.rs
+    param_dim.NE.as = 3 * (1 - param_dim.NE.eps - param_dim.PE.eps_fi) / param_dim.NE.rs
     param_dim.cell.area = param_dim.cell.width * param_dim.cell.length * param_dim.cell.no_layers
     param_dim.cell.mass = param_dim.cell.rho * param_dim.cell.volume
     param_dim.scale.I_typ = param_dim.cell.I1C / param_dim.cell.area
@@ -214,7 +214,7 @@ function NormaliseParam(param_dim::Params)
     param.PE.eps_fi = param_dim.PE.eps_fi;
     param.PE.brugg = param_dim.PE.brugg;
     param.PE.k = param_dim.PE.k / param.scale.k_p;
-    param.PE.Rs = param_dim.PE.Rs / param.scale.r0;
+    param.PE.rs = param_dim.PE.rs / param.scale.r0;
     param.PE.sig = param_dim.PE.sig / param.scale.sig;
     param.PE.U = x-> param_dim.PE.U(x) / param.scale.phi;
     param.PE.dUdT =x-> param_dim.PE.dUdT(x) / param.scale.phi * param.scale.T_ref;
@@ -232,7 +232,7 @@ function NormaliseParam(param_dim::Params)
     param.NE.eps_fi = param_dim.NE.eps_fi;
     param.NE.brugg = param_dim.NE.brugg;
     param.NE.k = param_dim.NE.k / param.scale.k_n;
-    param.NE.Rs = param_dim.NE.Rs / param.scale.r0;
+    param.NE.rs = param_dim.NE.rs / param.scale.r0;
     param.NE.sig = param_dim.NE.sig / param.scale.sig;
     param.NE.U =x-> param_dim.NE.U(x) / param.scale.phi;
     param.NE.dUdT =x-> param_dim.NE.dUdT(x) / param.scale.phi * param.scale.T_ref;
