@@ -1,35 +1,49 @@
-function SPMe(case::Case, opt::String)
-    param = case.param
-    mesh1 = case.mesh["negative particle"]
-    mesh2 = case.mesh["positive particle"]
-    mesh3 = case.mesh["electrolyte"]
+function SPMe(case::Case)
 
-    K1 = ElectrodeDiffusion(param.NE, mesh1, mesh1.nlen, opt)
-    K2 = ElectrodeDiffusion(param.PE, mesh2, mesh2.nlen, opt) 
-    K3 = ElectrolyteDiffusion(param, mesh3, mesh3.nlen, opt)   
-    if opt == "M"
-        K1 = K1 .* param.scale.ts_n
-        K2 = K2 .* param.scale.ts_p
-        K3 = K3 .* param.scale.te 
-    # elseif opt == "K"
-    #     # add interface boundary condition
-    #     xloc = [1.0, 0, 1.0, 0]
-    #     v = [case.opt.Nn, case.opt.Nn, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
-    #     _, dNidx = ShapeFunction1D(mesh3.element, mesh3.type, mesh3.node, xloc, v)  
-    #     v_ns = case.mesh["negative electrode"].nlen
-    #     v_sp = case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1
-    #     K3[v_ns, :] .= 0
-    #     K3[v_sp, :] .= 0
-    #     ce = param.EL.ce0 # need to modify later
-    #     T = 298.0
-    #     De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
-    #     K3[v_ns, mesh3.element[case.opt.Nn,:]] .+= dNidx[1,:] .* De_eff
-    #     K3[v_ns, mesh3.element[case.opt.Nn + 1,:]] .+= - dNidx[2,:] .* De_eff
-    #     K3[v_sp, mesh3.element[case.opt.Nn + case.opt.Ns, :]] .+= dNidx[3,:] .* De_eff
-    #     K3[v_sp, mesh3.element[case.opt.Nn + case.opt.Ns + 1,:]] .+= - dNidx[4,:] .* De_eff
+    t=0.1
+    F = SPMe_BC(case, t)
+    if case.opt.jacobi_K == "constant" # no need to update M and K
+        M = []
+        K = []
+    else
+        param = case.param
+        mesh1 = case.mesh["negative particle"]
+        mesh2 = case.mesh["positive particle"]
+        mesh3 = case.mesh["electrolyte"]
+        M1, K1 = ElectrodeDiffusion(param.NE, mesh1, mesh1.nlen, case.opt)
+        M2, K2 = ElectrodeDiffusion(param.PE, mesh2, mesh2.nlen, case.opt) 
+        M3, K3 = ElectrolyteDiffusion(param, mesh3, mesh3.nlen, case.opt)   
+        M1 = M1 .* param.scale.ts_n
+        M2 = M2 .* param.scale.ts_p
+        M3 = M3 .* param.scale.te 
+
+        # # the following part seems not to affect the result, need to recheck later
+        # # add interface boundary condition 
+        # xloc = [1.0, 0, 1.0, 0]
+        # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
+        # _, dNidx = ShapeFunction1D(mesh3.element, mesh3.type, mesh3.node, xloc, v)  
+        # v_ns = case.mesh["negative electrode"].nlen
+        # v_sp = case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1
+        # M3[v_ns, :] .= 0
+        # M3[v_sp, :] .= 0
+        # K3[v_ns, :] .= 0
+        # K3[v_sp, :] .= 0
+        # ce = param.EL.ce0 # need to modify later
+        # T = 298.0
+        # De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
+        # K3[v_ns, mesh3.element[v[1],:]] .+= dNidx[1,:] .* De_eff
+        # K3[v_ns, mesh3.element[v[2],:]] .+= - dNidx[2,:] .* De_eff
+        # K3[v_sp, mesh3.element[v[3],:]] .+= dNidx[3,:] .* De_eff
+        # K3[v_sp, mesh3.element[v[4],:]] .+= - dNidx[4,:] .* De_eff
+        # F[mesh1.nlen + mesh2.nlen + v_ns] = 0
+        # F[mesh1.nlen + mesh2.nlen + v_sp] = 0
+
+
+        M = blockdiag(M1, M2, M3)
+        K = blockdiag(K1, K2, K3)
     end
-    K = blockdiag(K1, K2, K3)
-    return K
+
+    return M, K, F
 end
 
 
@@ -55,9 +69,6 @@ function SPMe_BC(case::Case, t::Float64)
 
     Vi = EL_mesh.element[EL_mesh.gs.ele,:]
     flux_el = Assemble1D(Vi, EL_mesh.gs.Ni, coeff, EL_mesh.nlen)
-
-    # flux_el[case.mesh["negative electrode"].nlen] = 0
-    # flux_el[case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1] = 0
     flux = [flux_np; flux_pp; flux_el]
     return flux
 end

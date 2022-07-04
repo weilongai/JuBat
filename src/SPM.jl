@@ -1,16 +1,24 @@
-function SPM(case::Case, opt::String)
-    param = case.param
-    mesh1 = case.mesh["negative particle"]
-    mesh2 = case.mesh["positive particle"]
+function SPM(case::Case)
 
-    K1 = ElectrodeDiffusion(param.NE, mesh1, mesh1.nlen, opt)
-    K2 = ElectrodeDiffusion(param.PE, mesh2, mesh2.nlen, opt)   
-    if opt == "M"
-        K1 = K1 .* param.scale.ts_n
-        K2 = K2 .* param.scale.ts_p 
+    if case.opt.jacobi_K == "constant"
+        K = []
+        M = []
+    else
+        param = case.param
+        mesh1 = case.mesh["negative particle"]
+        mesh2 = case.mesh["positive particle"]
+        M1, K1 = ElectrodeDiffusion(param.NE, mesh1, mesh1.nlen, case.opt)
+        M2, K2 = ElectrodeDiffusion(param.PE, mesh2, mesh2.nlen, case.opt)   
+        M1 .*= param.scale.ts_n
+        M2 .*= param.scale.ts_p 
+
+        K = blockdiag(K1, K2)
+        M = blockdiag(M1, M2)
     end
-    K = blockdiag(K1, K2)
-    return K
+    t=0.1
+    F = SPM_BC(case, t)
+
+    return M, K, F
 end
 
 

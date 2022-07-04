@@ -1,13 +1,15 @@
-function  ElectrolyteDiffusion(param::Params, mesh::Mesh, mlen::Int64, opt::String, T::Float64=1.0)
+function  ElectrolyteDiffusion(param::Params, mesh::Mesh, mlen::Int64, opt::Option, T::Float64=1.0)
     """
         Generate the system equatiuon of Ma=Ku+F
         where a=du/dt
         inputs = param, mesh, flux, mlen
         outputs = M or K
     """
-    Vi = mesh.element[mesh.gs.ele,:];
-    Vj = mesh.element[mesh.gs.ele,:];
-    if opt == "M"
+    Vi = mesh.element[mesh.gs.ele,:]
+    Vj = mesh.element[mesh.gs.ele,:]
+    if opt.jacobi_M == "constant"
+        M = spzeros(mlen, mlen)
+    else
         coeff = mesh.gs.weight .* mesh.gs.detJ
         Nn=10
         Ns=10
@@ -19,12 +21,11 @@ function  ElectrolyteDiffusion(param::Params, mesh::Mesh, mlen::Int64, opt::Stri
         coeff[v_sp] .*= param.SP.eps
         coeff[v_pe] .*= param.PE.eps
 
-        K = Assemble(Vi, Vj, mesh.gs.Ni, mesh.gs.Ni, coeff , mlen);
-    elseif opt == "K"
-        ce = param.EL.ce0 # need to modify later
-        De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
-        coeff = - De_eff .* mesh.gs.weight .* mesh.gs.detJ;
-        K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff , mlen);
+        M = Assemble(Vi, Vj, mesh.gs.Ni, mesh.gs.Ni, coeff , mlen)
     end
-    return K
+    ce = param.EL.ce0 # need to modify later
+    De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
+    coeff = - De_eff .* mesh.gs.weight .* mesh.gs.detJ
+    K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff , mlen)
+    return M, K
 end

@@ -27,10 +27,14 @@ function Solve(case::Case)
     variables = StandardVariables(case, num)
     yold = y0 
     Variable_update!(case, variables, v, y0, t0)   
-    M = CallModel(case, "M") 
-    Kold= CallModel(case, "K") 
-    Fold = CallModel_BC(case, t0) 
-  
+    temp_M = deepcopy(case.opt.jacobi_M)
+    temp_K = deepcopy(case.opt.jacobi_K)
+    case.opt.jacobi_M = "update"
+    case.opt.jacobi_K = "update"
+    M, Kold, Fold= CallModel(case) 
+    case.opt.jacobi_M = deepcopy(temp_M)
+    case.opt.jacobi_K = deepcopy(temp_K)
+
     yt = zeros(Float64, size(M,1), num) 
     yt[:,1] = y0 
     time = zeros(Float64, 1,num) 
@@ -40,12 +44,12 @@ function Solve(case::Case)
 
     # run the model
     while t <= t_end
-        if case.opt.jacobi == "update"
-            Knew = CallModel(case, "K") 
+        if case.opt.jacobi_K == "update"
+            _, Knew, Fnew = CallModel(case) 
         else
+            _, _, Fnew = CallModel(case) 
             Knew = deepcopy(Kold)
         end
-        Fnew = CallModel_BC(case, t)
         Mt = M - theta * Knew * dt 
         Kt = (1 - theta) * Kold * dt + M 
         Ft = theta * Fnew * dt + (1 - theta) * Fold * dt 
@@ -83,7 +87,7 @@ function Solve(case::Case)
 
         yold = ynew 
         t = t + dt 
-        if case.opt.jacobi == "update"
+        if case.opt.jacobi_K == "update"
             Kold = deepcopy(Knew) 
         end
     end
@@ -94,15 +98,15 @@ function Solve(case::Case)
     return result
 end
 
-function CallModel(case::Case, opt::String)
+function CallModel(case::Case)
     if case.opt.model == "SPM"
-        K = SPM(case, opt) 
+        M, K, F = SPM(case) 
     elseif case.opt.model == "SPMe"
-        K = SPMe(case, opt)    
+        M, K, F = SPMe(case)    
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end
-    return K
+    return M, K, F
 end
 
 function CallModel_BC(case::Case, t::Float64)

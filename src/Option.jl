@@ -23,5 +23,6 @@ using Parameters
     solveType::String  = "Crank-Nicolson" # forward, backward or Crank-Nicolson
     outputType::String  = "auto" # auto or manual
     outputTime::Array{Float64,1} = []
-    jacobi::String = "constant" # constant or update
+    jacobi_M::String = "constant" # constant or update
+    jacobi_K::String = "constant" # constant or update
 end

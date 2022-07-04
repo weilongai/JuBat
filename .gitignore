@@ -1,0 +1,17 @@
+*.txt
+*.pdf
+*.tmp
+*.png
+/local/
+*.DS_Store
+*.mat
+*.csv
+
+# don't ignore important .txt and .csv files
+!requirements*
+!LICENSE.txt
+!CMakeLists.txt
+!src/data/*.csv
+
+# julia
+Manifest.toml
