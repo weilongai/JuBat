@@ -88,17 +88,23 @@ function PickElement(mesh::Mesh, v::Vector{Int64})
                 v::Vector{Inveger}, the index of elements to be picked up
         outputs = mesh1::Mesh
             mesh1 = mesh(v), including the collection of Gaussian points
+        the new mesh will resort the index of node, element and Gauss points 
     """
     type = mesh.type
     dim = mesh.dimension
-    node = mesh.node
-    nlen = mesh.nlen
+
     if type == "L2"
         ele_node = 2
     elseif type == "L3"
         ele_node = 3
     end 
-    element = mesh.element[v,:]
+    element = deepcopy(mesh.element[v,:])
+    node_pool = unique(reshape(element,:,1))
+    node_pool_pair = zeros(Int64, maximum(node_pool))
+    nlen = length(node_pool)
+    node_pool_pair[node_pool] = collect(1:nlen)
+    node = mesh.node[node_pool,:]
+    element = node_pool_pair[element]
     gsorder = mesh.gs.order
     gs = deepcopy(mesh.gs)
     len = gsorder ^ dim
@@ -119,6 +125,91 @@ function PickElement(mesh::Mesh, v::Vector{Int64})
     return mesh_picked
 end
 
+function CombineMesh(meshes::Vector{Mesh})
+    """
+        combine meshes to a big mesh
+        Inputs = meshes::Vector{Mesh}
+        outputs = mesh_combined::Mesh
+           e.g. meshnew = Combine([mesh1, mesh2, mesh3])
+    """
+    type = meshes[1].type
+    dimension = meshes[1].dimension
+    gsorder = meshes[1].gs.order
+    for i = 2:length(meshes)
+        if type != meshes[i].type
+            error("the types of meshes do not match for combination!")
+        end
+        if dimension != meshes[i].dimension
+            error("the dimensions of meshes do not match for combination!")
+        end
+        if gsorder != meshes[i].gs.order
+            error("the orders of Gaussian quadrature do not match for combination!")
+        end
+    end
+
+    n_mesh = length(meshes)
+    n_element = zeros(Int64, n_mesh)
+    n_node = zeros(Int64, n_mesh)
+    n_gs = zeros(Int64, n_mesh)
+    len_node = 0
+    len_element = 0
+    len_gs = 0
+    for i = 1:n_mesh
+        n_element[i] = size(meshes[i].element, 1)
+        n_node[i] = meshes[i].nlen
+        n_gs[i] = size(meshes[i].gs.x, 1)
+        len_element += n_element[i]
+        len_node += n_node[i]
+        len_gs += n_gs[i]
+    end
+
+    element = zeros(Int64, len_element, size(meshes[1].element,2))
+    node = zeros(Float64, len_node, size(meshes[1].node,2))
+    x = zeros(Float64, len_gs, size(meshes[1].gs.x, 2))
+    xloc = zeros(Float64, len_gs, size(meshes[1].gs.xloc, 2))
+    weight = zeros(Float64, len_gs)
+    detJ = zeros(Float64, len_gs)
+    ele = zeros(Int64, len_gs)
+    Ni = zeros(Float64, len_gs, size(meshes[1].gs.Ni, 2))
+    dNidx = zeros(Float64, len_gs, size(meshes[1].gs.dNidx, 2))
+
+    v_ele = 0
+    v_node = 0
+    v_gs = 0
+    for i = 1:n_mesh
+        element[v_ele + 1:v_ele + n_element[i],:] = meshes[i].element .+ v_node
+        ele[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.ele .+ v_ele 
+        node[v_node + 1:v_node + n_node[i],:] = meshes[i].node
+        x[v_gs + 1:v_gs + n_gs[i], :] = meshes[i].gs.x
+        xloc[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.xloc
+        weight[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.weight
+        detJ[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.detJ
+        Ni[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.Ni
+        dNidx[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.dNidx
+        v_ele += n_element[i]
+        v_node += n_node[i]
+        v_gs += n_gs[i]
+    end
+
+    gs = GaussPoint(x, xloc, weight, detJ, ele, Ni, dNidx, gsorder)
+    mesh_combined = Mesh(type, dimension, node, len_node, element, gs)
+    return mesh_combined
+end
+
+function MultipleMesh(mesh::Mesh, n::Int64)
+    """
+        A function to duplicate a mesh by n times and combine them to one big mesh
+            Inputs = mesh::Mesh
+                    n::Int64
+            Outputs = meshnew::Mesh
+    """
+    meshes = [mesh]
+    for i = 1:n-1
+        push!(meshes, mesh)
+    end
+    meshnew = CombineMesh(meshes)
+    return meshnew
+end
 
 function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, dimen::Int64, v=collect(1:size(element,1)))
     total_num = size(element,1) * order ^ dimen

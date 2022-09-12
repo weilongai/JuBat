@@ -10,7 +10,7 @@ using Parameters
     model::String  = "SPM"
     time::Array{Float64} = [0 3600]
     meshType::String  = "L2"
-    gsOrder::Int64 = 2
+    gsorder::Int64 = 2
     dimension::Int64 = 1
     #opt.load = {"constant discharge 1C for 1h"}
     Current::Function = x-> 0
@@ -23,6 +23,5 @@ using Parameters
     solveType::String  = "Crank-Nicolson" # forward, backward or Crank-Nicolson
     outputType::String  = "auto" # auto or manual
     outputTime::Array{Float64,1} = []
-    jacobi_M::String = "constant" # constant or update
-    jacobi_K::String = "constant" # constant or update
+    jacobi::String = "constant" # constant or update
 end

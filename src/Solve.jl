@@ -1,14 +1,13 @@
 function Solve(case::Case)
-    dt_min = case.opt.dt[1] / case.param. scale.t0 
-    dt_max = case.opt.dt[2] / case.param. scale.t0 
-    RunTime = case.opt.time / case.param. scale.t0 
+    dt_min = case.opt.dt[1] / case.param.scale.t0 
+    dt_max = case.opt.dt[2] / case.param.scale.t0 
+    RunTime = case.opt.time / case.param.scale.t0 
     t0 = RunTime[1] 
-    t_end = RunTime[end] 
-    if isempty(case.opt.y0)
-        y0 = ModelInitial(case) 
-    else
-        y0 = case.opt.y0 
-    end
+    t_end = RunTime[end]
+    
+    # initialisation 
+    y0 = ModelInitialisation(case) 
+
     if case.opt.solveType == "Crank-Nicolson"
         theta = 0.5 
     elseif case.opt.solveType == "forward"
@@ -18,50 +17,44 @@ function Solve(case::Case)
     else
         error( "Error: $(opt.solve_type) difference scheme has not been implemented!\n ") 
     end
-    # initialisation
+
     dt = deepcopy(dt_min)
     ddt = deepcopy(dt_min)
-   
-    num = round(Int64, (t_end - t0)/dt * 2) 
-    v = 1  
-    variables = StandardVariables(case, num)
-    yold = y0 
-    Variable_update!(case, variables, v, y0, t0)   
-    temp_M = deepcopy(case.opt.jacobi_M)
-    temp_K = deepcopy(case.opt.jacobi_K)
-    case.opt.jacobi_M = "update"
-    case.opt.jacobi_K = "update"
-    M, Kold, Fold= CallModel(case) 
-    case.opt.jacobi_M = deepcopy(temp_M)
-    case.opt.jacobi_K = deepcopy(temp_K)
+    num = round(Int64, (t_end - t0)/dt * 1.5) 
+    variables_hist = StandardVariables(case, num)
 
-    yt = zeros(Float64, size(M,1), num) 
-    yt[:,1] = y0 
-    time = zeros(Float64, 1,num) 
-    t = t0 + dt
-    vt = 2 
+
+    t = t0
+    vt = 1  
+    v = 1 
+    yold = deepcopy(y0)
+    M, Kold, Fold, variables= CallModel(case, y0, t, jacobi="update") 
+    Variable_update!(variables_hist, variables, v) 
+    Mt = M - Kold * dt 
+    Kt =  M 
+    Ft = Fold * dt 
+    ynew = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * yold + Ft) 
+    t += dt
     print( "start to solve the problem \n")
 
     # run the model
     while t <= t_end
-        if case.opt.jacobi_K == "update"
-            _, Knew, Fnew = CallModel(case) 
+        if case.opt.jacobi == "update"
+            _, Knew, Fnew, variables = CallModel(case, ynew, t, jacobi="update") 
         else
-            _, _, Fnew = CallModel(case) 
+            _, _, Fnew, variables = CallModel(case, ynew, t, jacobi="constant") 
             Knew = deepcopy(Kold)
         end
         Mt = M - theta * Knew * dt 
         Kt = (1 - theta) * Kold * dt + M 
         Ft = theta * Fnew * dt + (1 - theta) * Fold * dt 
-
+        yold = deepcopy(ynew)
         ynew = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * yold + Ft) 
 
         # record the results
         if case.opt.outputType == "auto" || case.opt.outputTime == [] || abs(t - case.opt.outputTime[vt]) < 1e-7
             v = v + 1 
-            yt[:,v] = ynew 
-            time[1, v] = t 
-            Variable_update!(case, variables, v, ynew, t) 
+            Variable_update!(variables_hist, variables, v) 
             if length(case.opt.outputTime) > 0 && abs(t - case.opt.outputTime[vt]) < 1e-7
                 vt = vt + 1 
             end
@@ -79,68 +72,28 @@ function Solve(case::Case)
             elseif change > 4 * case.opt.dtThreshold
                 dt = deepcopy(dt_min)
 		        ddt = deepcopy(dt_min)
-            else
-                ddt = ddt/2
-                dt = max(ddt, dt_min)  
-            end
-        end
-
-        yold = ynew 
-        t = t + dt 
-        if case.opt.jacobi_K == "update"
+        t += dt 
+        if case.opt.jacobi == "update"
             Kold = deepcopy(Knew) 
         end
     end
- 
-    yt = yt[:,1:v] 
-    result = PostProcessing(case, yt, variables, v) 
+
+    result = PostProcessing(case, variables_hist, v) 
     print("finish the simulation\n") 
     return result
 end
 
-function CallModel(case::Case)
+function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String="update")
     if case.opt.model == "SPM"
-        M, K, F = SPM(case) 
+        M, K, F, variables = SPM(case, yt, t, jacobi=jacobi) 
     elseif case.opt.model == "SPMe"
-        M, K, F = SPMe(case)    
+        M, K, F, variables = SPMe(case, yt, t, jacobi=jacobi)
+    elseif case.opt.model == "P2D"
+        M, K, F, variables = P2D(case, yt, t, jacobi=jacobi)     
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end
-    return M, K, F
-end
-
-function CallModel_BC(case::Case, t::Float64)
-    if case.opt.model == "SPM"
-        F = SPM_BC(case, t) 
-    elseif case.opt.model == "SPMe"
-        F = SPMe_BC(case, t)
-    else
-        error( "Error: $(case.opt.model) model has not been implemented!\n ")
-    end
-    return F
-end
-
-
-
-function ModelInitial(case::Case)
-    if case.opt.model == "SPM"
-        n1 = case.mesh["negative particle"].nlen
-        csn0 = case.param.NE.cs_0
-        n2 = case.mesh["positive particle"].nlen
-        csp0 = case.param.PE.cs_0
-        y0 = [ones(Float64, n1, 1) * csn0;  ones(Float64, n2, 1) * csp0]
-    elseif case.opt.model == "SPMe"
-        n1 = case.mesh["negative particle"].nlen
-        csn0 = case.param.NE.cs_0
-        n2 = case.mesh["positive particle"].nlen
-        csp0 = case.param.PE.cs_0
-        n3 = case.mesh["electrolyte"].nlen
-        ce0 = case.param.EL.ce0
-        y0 = [ones(Float64, n1, 1) * csn0;  ones(Float64, n2, 1) * csp0; ones(Float64, n3, 1) * ce0]
-    else
-        error( "Error: $(case.opt.model{1}) model has not been implemented!\n ")
-    end
-    return y0
+    return M, K, F,variables
 end
 
 

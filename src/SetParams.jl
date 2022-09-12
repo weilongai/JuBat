@@ -32,6 +32,7 @@
             theta_0 --  Theta @ 0% Lithium Concentration 
             theta_100 --  Theta @ 100% Lithium Concentration 
             alpha -- Alpha Factor
+            dlnf_dlnc -- activity of electrolyte, i.e. 1 + dln(f)/dln(ce)
 """
 @with_kw mutable struct Electrode
     theta_100::Float64 = 0
@@ -78,7 +79,7 @@ end
 @with_kw mutable struct Electrolyte
     De::Function = x-> 0
     kappa::Function = x-> 0
-    tau::Function = x-> 0
+    dlnf_dlnc::Function = x-> 0
     rho::Float64 = 0 
     heat_Q::Float64 = 0
     tplus::Float64 = 0
@@ -267,6 +268,7 @@ function NormaliseParam(param_dim::Params)
     param.cell.mass = param_dim.cell.mass / param_dim.cell.mass
     param.cell.heat_Q = param_dim.cell.heat_Q * param_dim.cell.mass * param.scale.T_ref / param_dim.cell.capacity / param.scale.t0 
     param.cell.T_amb = param_dim.cell.T_amb / param.scale.T_ref 
+    param.cell.T0 = param_dim.cell.T0 / param.scale.T_ref 
     param.cell.area = param_dim.cell.area * param.scale.phi * param.scale.I_typ / param_dim.cell.capacity
     param.cell.volume = param_dim.cell.volume * param.scale.phi / param.scale.L * param.scale.I_typ / param_dim.cell.capacity
 

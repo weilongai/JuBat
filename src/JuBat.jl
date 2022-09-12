@@ -8,13 +8,17 @@ include("SetCase.jl")
 include("Assemble.jl") 
 include("ElectrodeDiffusion.jl")
 include("ElectrolyteDiffusion.jl")
+include("ElectrodePotential.jl")
+include("ElectrolytePotential.jl")
 include("SPM.jl") 
 include("SPMe.jl") 
+include("P2D.jl") 
 include("Solve.jl")
 include("Postprocessing.jl")
 include("Tools.jl")
 include("Thermal.jl")
 include("Variables.jl")
+include("Initialisation.jl")
 
 
 export Assemble, ElectrodeDiffusion, ElectrolyteDiffusion, Postprocessing, SetCase, SetMesh, ChooseCell

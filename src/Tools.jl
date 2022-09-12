@@ -1,11 +1,11 @@
-function Arrhenius(Eac::Float64, T::Float64)
+function Arrhenius(Eac::Float64, T::Union{Float64, Array{Float64}})
 """
     Arrhenius function 
         Input: Eac::Float64 - activation energy (normalised with Eac/(R T0))
                 T::Float64 - temperature (normalised with T/T0)
         Output: the results of Arrhenius function
 """
-    return exp(Eac * (1 - 1 ./ T))
+    return exp.(Eac * (1 .- 1 ./ T))
 end
 
 

@@ -1,7 +1,7 @@
-function PostProcessing(case::Case, yt::Array{Float64}, variables::Dict{String, Matrix{Float64}}, v::Int64)
+function PostProcessing(case::Case, variables::Dict{String, Union{Array{Float64},Float64}}, v::Int64)
     result = Dict()
-    result["negative particle lithium concentration [mol/m^3]"] = yt[case.index["csn"],1:v] * case.param.scale.cn_max
-    result["positive particle lithium concentration [mol/m^3]"] = yt[case.index["csp"],1:v] * case.param.scale.cp_max
+    result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][1:v] * case.param.scale.cn_max
+    result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][1:v] * case.param.scale.cp_max
     result["time [s]"]= variables["time"][1:v] * case.param.scale.t0 
     result["cell voltage [V]"]= variables["cell voltage"][1:v] * case.param.scale.phi
 
