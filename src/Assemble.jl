@@ -35,17 +35,14 @@ end
 
 function Assemble1D(Vi::Array{Int64}, Ni::Array{Float64}, coeff::Array{Float64}, mlen1::Int64)
     # A function to assemble the system matrix
-    # Inputs = Vi, Vj, Ni, Nj, coeff, mlen1 and mlen2(=mlen1 if not claimed)
-    # To get the integration of 'Ni*Nj*coeff*weight*detJ'
-    # to obtian the system matrix M(Vi, Vj) 
+    # Inputs = Vi, Ni, coeff and mlen1
+    # To get the integration of 'Ni*coeff*weight*detJ'
+    # to obtian the system matrix F(Vi) 
 
-    gslen = size(Ni,1)
     gslen1 = size(Ni, 2)
     F = zeros(Float64, mlen1)
     for i = 1 : gslen1
-        for j = 1: gslen
-            F[Vi[j, i]] += Ni[j,i] * coeff[j] 
-        end
+            F[Vi[:, i]] .+= Ni[:,i] .* coeff[:]
     end
     return F
 end

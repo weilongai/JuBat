@@ -1,5 +1,5 @@
 a=1
-b=2
-c=3
-d=4
-println(a,b,c,d-a)
+for i=1:3
+    a += i
+end
+print(a)

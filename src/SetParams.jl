@@ -47,7 +47,7 @@
     brugg::Float64 = 0
     k::Float64 = 0
     cs_max::Float64 = 0
-    cs_0::Float64 = 0
+    cs0::Float64 = 0
     rs::Float64 = 0
     as::Float64 = 0
     sig::Float64 = 0
@@ -56,6 +56,10 @@
     alpha::Float64 = 0
     U::Function = x-> 0.0
     dUdT::Function = x-> 0.0
+    M_d::Array{Float64} = []
+    K_d::Array{Float64} = []
+    M_p::Array{Float64} = []
+    K_p::Array{Float64} = []
 end
 
 @with_kw mutable struct Separator
@@ -192,7 +196,7 @@ function ChooseCell(CellType::String="LG M50")
     param_dim.scale.k_p = param_dim.scale.j / param_dim.PE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.k_n = param_dim.scale.j / param_dim.NE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.R_cell = param_dim.scale.phi / param_dim.scale.I_typ
-    param_dim.scale.kappa = param_dim.scale.j / param_dim.scale.phi * param_dim.scale.a0 * param_dim.scale.L^2
+    param_dim.scale.kappa = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi
     return param_dim
 end
 
@@ -208,7 +212,7 @@ function NormaliseParam(param_dim::Params)
     # posotove electrode
     param.PE.theta_100 = param_dim.PE.theta_100
     param.PE.theta_0 = param_dim.PE.theta_0
-    param.PE.cs_0 = param_dim.PE.cs_0 / param_dim.PE.cs_max
+    param.PE.cs0 = param_dim.PE.cs0 / param_dim.PE.cs_max
     param.PE.thickness = param_dim.PE.thickness / param.scale.L 
     param.PE.Ds = param_dim.PE.Ds / param.scale.Ds_p
     param.PE.eps = param_dim.PE.eps
@@ -226,7 +230,7 @@ function NormaliseParam(param_dim::Params)
     # negative electrode
     param.NE.theta_100 = param_dim.NE.theta_100
     param.NE.theta_0 = param_dim.NE.theta_0
-    param.NE.cs_0 = param_dim.NE.cs_0 / param_dim.NE.cs_max
+    param.NE.cs0 = param_dim.NE.cs0 / param_dim.NE.cs_max
     param.NE.thickness = param_dim.NE.thickness / param.scale.L
     param.NE.Ds = param_dim.NE.Ds / param.scale.Ds_n
     param.NE.eps = param_dim.NE.eps
@@ -256,8 +260,8 @@ function NormaliseParam(param_dim::Params)
     param.NCC.sig = param_dim.NCC.sig / param.scale.sig
 
     # electrolyte
-    param.EL.De = x-> param_dim.EL.De(x) / param.scale.De
-    param.EL.kappa = x-> param_dim.EL.kappa(x) / param.scale.kappa
+    param.EL.De = x-> param_dim.EL.De(x * param.scale.ce) / param.scale.De
+    param.EL.kappa = x-> param_dim.EL.kappa(x * param.scale.ce) / param.scale.kappa
     param.EL.tplus = param_dim.EL.tplus
     param.EL.ce0 = param_dim.EL.ce0 / param.scale.ce
 

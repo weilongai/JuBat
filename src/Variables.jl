@@ -29,7 +29,8 @@ function StandardVariables(case::Case, num::Int64)
         "negative electrode open circuit potential" => zeros(Float64, Nn, num),
         "positive electrode open circuit potential" => zeros(Float64, Np, num),
         "cell voltage" => zeros(Float64, 1, num),
-        "time" => zeros(Float64, 1, num),          
+        "time" => zeros(Float64, 1, num),      
+        "cell current" => zeros(Float64, 1, num),      
     )
     # additional variables for SPMe and P2D
     if case.opt.model == "SPMe" || case.opt.model == "P2D"

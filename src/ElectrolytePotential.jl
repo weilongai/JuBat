@@ -12,9 +12,9 @@ function  ElectrolytePotential(param::Params, mesh::Mesh, mlen::Int64, variables
     ce_p_gs = variables["electrolyte lithium concentration at positive electrode Gauss point"] 
     ce_sp_gs = variables["electrolyte lithium concentration at separator Gauss point"]
     coeff_ne = param.EL.kappa(ce_n_gs) * param.NE.eps ^ param.NE.brugg
-    coeff_sp = param.EL.kappa(ce_p_gs) * param.SP.eps ^ param.SP.brugg
-    coeff_pe = param.EL.kappa(ce_sp_gs) * param.PE.eps ^ param.PE.brugg
-    coeff = [coeff_ne; coeff_sp; coeff_pe] .* mesh.gs.weight .* mesh.gs.detJ
+    coeff_sp = param.EL.kappa(ce_sp_gs) * param.SP.eps ^ param.SP.brugg
+    coeff_pe = param.EL.kappa(ce_p_gs) * param.PE.eps ^ param.PE.brugg
+    coeff = - [coeff_ne; coeff_sp; coeff_pe] .* mesh.gs.weight .* mesh.gs.detJ
     K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff, mlen)
     return M, K
 end

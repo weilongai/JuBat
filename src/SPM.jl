@@ -1,20 +1,21 @@
 function SPM(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     variables = SPM_variables(case, yt, t)
-    if jacobi == "constant" || jacobi == "constant MK" 
-        K = []
-        M = []
+    if jacobi == "constant" && param.NE.M_d != [] # no need to update M and K
+        M_np = param.NE.M_d
+        K_np = param.NE.K_d
+        M_pp = param.PE.M_d
+        K_pp = param.PE.K_d
     else
         param = case.param
-        mesh1 = case.mesh["negative particle"]
-        mesh2 = case.mesh["positive particle"]
-        M1, K1 = ElectrodeDiffusion(param.NE, mesh1, mesh1.nlen)
-        M2, K2 = ElectrodeDiffusion(param.PE, mesh2, mesh2.nlen)   
-        M1 .*= param.scale.ts_n
-        M2 .*= param.scale.ts_p 
-
-        K = blockdiag(K1, K2)
-        M = blockdiag(M1, M2)
+        mesh_np = case.mesh["negative particle"]
+        mesh_pp = case.mesh["positive particle"]
+        M_np, K_np = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
+        M_pp, K_pp = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)   
+        M_np .*= param.scale.ts_n
+        M_pp .*= param.scale.ts_p 
     end
+    K = blockdiag(K_np, K_pp)
+    M = blockdiag(M_np, M_pp)
     F = SPM_BC(case, variables)
     return M, K, F, variables
 end
@@ -37,9 +38,9 @@ end
 
 function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     param = case.param
-    I = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
-    j_n = - I / param.NE.as / param.NE.thickness
-    j_p = I / param.PE.as / param.PE.thickness
+    I_app = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
+    j_n = - I_app / param.NE.as / param.NE.thickness
+    j_p = I_app / param.PE.as / param.PE.thickness
     variables = StandardVariables(case, 1)
     var_list = collect(keys(case.index))
     for i in var_list
@@ -54,8 +55,8 @@ function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     cp_surf = variables["positive particle surface lithium concentration"]
     u_n = param.NE.U(cn_surf)
     u_p = param.PE.U(cp_surf)
-    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) * sqrt.(cn_surf .* param.EL.ce0 .* (1.0 .- cn_surf))
-    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) * sqrt.(cp_surf .* param.EL.ce0 .* (1.0 .- cp_surf))
+    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) * sqrt.(cn_surf .* param.EL.ce0 .* abs.(1.0 .- cn_surf))
+    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) * sqrt.(cp_surf .* param.EL.ce0 .* abs.(1.0 .- cp_surf))
     eta_n = 2 * T * asinh.(j_n / 2.0 ./ j0_n)
     eta_p = 2 * T * asinh.(j_p / 2.0 ./ j0_p)
     V_cell = u_p - u_n + eta_p - eta_n 
@@ -70,5 +71,6 @@ function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["positive electrode open circuit potential"] = u_p
     variables["time"] = t
     variables["temperature"] = T
+    variables["cell current"] = case.opt.Current(t) / case.param_dim.cell.I1C
     return variables
 end
