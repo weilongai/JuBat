@@ -11,14 +11,17 @@ function  ElectrolyteDiffusion(param::Params, mesh::Mesh, mlen::Int64, variables
     ce_n_gs = variables["electrolyte lithium concentration at negative electrode Gauss point"] 
     ce_p_gs = variables["electrolyte lithium concentration at positive electrode Gauss point"] 
     ce_sp_gs = variables["electrolyte lithium concentration at separator Gauss point"]
-    coeff_ne = param.EL.kappa(ce_n_gs) * param.NE.eps ^ param.NE.brugg
-    coeff_sp = param.EL.kappa(ce_sp_gs) * param.SP.eps ^ param.SP.brugg
-    coeff_pe = param.EL.kappa(ce_p_gs) * param.PE.eps ^ param.PE.brugg
+    coeff_ne = ones(size(ce_n_gs)) * param.NE.eps
+    coeff_sp = ones(size(ce_sp_gs)) * param.SP.eps
+    coeff_pe = ones(size(ce_p_gs)) * param.PE.eps
     coeff = [coeff_ne; coeff_sp; coeff_pe] .* mesh.gs.weight .* mesh.gs.detJ
 
     M = Assemble(Vi, Vj, mesh.gs.Ni, mesh.gs.Ni, coeff , mlen)
     T = variables["temperature"]
-    De_eff =  param.EL.De([ce_n_gs; ce_sp_gs; ce_p_gs]) * Arrhenius(param.EL.Eac_D, T)
+    De_ne =  param.EL.De(ce_n_gs) * param.NE.eps ^ param.NE.brugg
+    De_sp =  param.EL.De(ce_sp_gs) * param.SP.eps ^ param.SP.brugg
+    De_pe =  param.EL.De(ce_p_gs) * param.PE.eps ^ param.PE.brugg
+    De_eff =  [De_ne; De_sp; De_pe] * Arrhenius(param.EL.Eac_D, T)
     coeff = - De_eff .* mesh.gs.weight .* mesh.gs.detJ
     K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff , mlen)
     return M, K

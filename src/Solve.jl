@@ -28,8 +28,10 @@ function Solve(case::Case)
     t = t0
     vt = 2  
     v = 1 
-    y_old = deepcopy(y0)
     M_old, K_old, F_old, variables= CallModel(case, y0, t, jacobi="update") 
+    # dt_init = 1e-8
+    # y_old = (M_old - K_old * dt_init) \ (M_old * y0 + F_old * dt_init)
+    y_old = deepcopy(y0)
     Variable_update!(variables_hist, variables, v)
     t += dt 
     if case.opt.jacobi == "constant"
@@ -45,13 +47,12 @@ function Solve(case::Case)
         Kt = (1 - theta) * K_old * dt + M_new 
         Ft = theta * F_new * dt + (1 - theta) * F_old * dt 
         y_new = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * y_old + Ft) 
-        
-        error_y = norm(y_new - y_old) / dt * dt_min / norm(y_old)
-        if error_y > 2 * case.opt.dtThreshold
-            # reduce dt to dt/2 and recaculate y_new
-            dt = min(dt/2, dt_min)
-            t -= dt
-        else 
+        error_y = ErrorEstimation(case, y_old, y_new, dt_min / dt) 
+        # if error_y > 2 * case.opt.dtThreshold && case.opt.dtType == "auto" && dt >= dt_min/4
+        #     # reduce dt to dt/2 and recaculate y_new
+        #     dt = min(dt/2, dt_min)
+        #     t -= dt
+        # else 
             # record the results
             if case.opt.outputType == "auto" || abs(t - RunTime[vt]) < 1e-7
                 v = v + 1 
@@ -86,7 +87,7 @@ function Solve(case::Case)
             F_old = deepcopy(F_new)
             t += dt 
         end
-    end
+    # end
     result = PostProcessing(case, variables_hist, v) 
     print("finish the simulation\n") 
     return result
@@ -106,30 +107,32 @@ function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
 end
 
 function RecordMatrix!(case::Case, M::SparseArrays.SparseMatrixCSC{Float64, Int64}, K::SparseArrays.SparseMatrixCSC{Float64, Int64})
-    if case.opt.model == "SPM" || case.opt.model == "SPMe"
-        l_np= case.mesh["negative particle"].nlen
-        l_pp= case.mesh["positive particle"].nlen
-        case.param.NE.M_d = M[1:l_np, 1:l_np]
-        case.param.NE.K_d = K[1:l_np, 1:l_np]
-        case.param.PE.M_d = M[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]
-        case.param.PE.K_d = K[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]  
-    elseif case.opt.model == "P2D"
-        l_np= case.mesh["negative particle"].nlen
-        l_pp= case.mesh["positive particle"].nlen
-        l_el = case.mesh["electrolyte"].nlen
-        l_ne = case.mesh["negative electrode"].nlen
-        l_pe = case.mesh["positive electrode"].nlen
-        case.param.NE.M_d = M[1:l_np, 1:l_np]
-        case.param.NE.K_d = K[1:l_np, 1:l_np]
-        case.param.PE.M_d = M[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]
-        case.param.PE.K_d = K[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]
-        case.param.NE.M_d = M[1:l_np, 1:l_np]
-        case.param.NE.K_d = K[1:l_np, 1:l_np]
-        case.param.PE.M_d = M[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]
-        case.param.PE.K_d = K[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]  
-    else
-        error( "Error: $(case.opt.model) model has not been implemented!\n ")
-    end
+    l_np= case.mesh["negative particle"].nlen
+    l_pp= case.mesh["positive particle"].nlen
+    case.param.NE.M_d = M[1:l_np, 1:l_np]
+    case.param.NE.K_d = K[1:l_np, 1:l_np]
+    case.param.PE.M_d = M[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]
+    case.param.PE.K_d = K[l_np+1:l_np+l_pp, l_np+1:l_np+l_pp]  
     return case
 end
 
+function ErrorEstimation(case::Case, y_old::Array{Float64}, y_new::Array{Float64}, coeff::Float64)
+    error_y = 0.0
+    if case.opt.model == "SPM" || case.opt.model == "SPMe"
+        error_y = norm(y_new - y_old) / norm(y_old) * coeff
+    else
+        v_c_np = case.index["negative particle lithium concentration"]
+        v_c_pp = case.index["positive particle lithium concentration"]
+        v_c_el = case.index["electrolyte lithium concentration"]
+        v_phi_np = case.index["negative electrode potential"]
+        v_phi_pp = case.index["positive electrode potential"]
+        v_phi_el = case.index["electrolyte potential"]
+        for i in [v_c_np, v_c_pp, v_c_el, v_phi_np, v_phi_pp, v_phi_el]
+            if norm(y_old[i])>0
+                error_y = max(error_y, norm(y_new[i] - y_old[i]) / norm(y_old[i]) * coeff)
+            end
+        end
+
+    end
+    return error_y    
+end

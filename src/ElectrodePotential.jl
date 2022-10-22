@@ -10,7 +10,7 @@ function  ElectrodePotential(electrode::Electrode, mesh::Mesh, mlen::Int64, T::F
     Vi = mesh.element[mesh.gs.ele,:]
     Vj = mesh.element[mesh.gs.ele,:]
 
-    sig_eff = electrode.sig * (1 - electrode.eps - electrode.eps_fi)
+    sig_eff = electrode.sig * electrode.eps_s
     coeff = sig_eff .* mesh.gs.weight .* mesh.gs.detJ
     K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff , mlen)
     return M, K

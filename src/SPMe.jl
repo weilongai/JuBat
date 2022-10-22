@@ -16,8 +16,8 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     end
     mesh_el = case.mesh["electrolyte"]        
     M_el, K_el = ElectrolyteDiffusion(param, mesh_el, mesh_el.nlen, variables)   
-
     M_el = M_el .* param.scale.te 
+    F = SPMe_BC(case, variables)
 
     # # the following part seems not to affect the result, need to recheck later
     # # add interface boundary condition 
@@ -31,18 +31,18 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     # K_el[v_ns, :] .= 0
     # K_el[v_sp, :] .= 0
     # ce = param.EL.ce0 # need to modify later
-    # T = 298.0
+    # T = variables["temperature"]
     # De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
-    # K_el[v_ns, mesh_el.element[v[1],:]] .+= dNidx[1,:] .* De_eff
-    # K_el[v_ns, mesh_el.element[v[2],:]] .+= - dNidx[2,:] .* De_eff
-    # K_el[v_sp, mesh_el.element[v[3],:]] .+= dNidx[3,:] .* De_eff11
-    # K_el[v_sp, mesh_el.element[v[4],:]] .+= - dNidx[4,:] .* De_eff
+    # K_el[v_ns, mesh_el.element[v[1],:]] .+= dNidx[1,:] .* De_eff * param.NE.eps ^ param.NE.brugg
+    # K_el[v_ns, mesh_el.element[v[2],:]] .+= - dNidx[2,:] .* De_eff * param.SP.eps ^ param.SP.brugg
+    # K_el[v_sp, mesh_el.element[v[3],:]] .+= dNidx[3,:] .* De_eff * param.SP.eps ^ param.SP.brugg
+    # K_el[v_sp, mesh_el.element[v[4],:]] .+= - dNidx[4,:] .* De_eff * param.PE.eps ^ param.PE.brugg
     # F[mesh_np.nlen + mesh_pp.nlen + v_ns] = 0
     # F[mesh_np.nlen + mesh_pp.nlen + v_sp] = 0
     
     M = blockdiag(M_np, M_pp, M_el)
     K = blockdiag(K_np, K_pp, K_el)
-    F = SPMe_BC(case, variables)
+
     return M, K, F, variables
 end
 
@@ -104,18 +104,26 @@ function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
     j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* (cp_surf .* abs(1.0 .- cp_surf) .* ce_p_gs) .^ 0.5
     j0_n_av = IntV(j0_n_gs, mesh_ne) / param.NE.thickness
     j0_p_av = IntV(j0_p_gs, mesh_pe) / param.PE.thickness
-    eta_n = 2.0 * T * asinh.(-I_app / param.NE.as / param.NE.thickness / 2.0 / j0_n_av)
-    eta_p = 2.0 * T * asinh.(I_app / param.PE.as / param.PE.thickness / 2.0 / j0_p_av)
+    eta_n = 2.0 * T * asinh.(j_n / 2.0 / j0_n_av)
+    eta_p = 2.0 * T * asinh.(j_p / 2.0 / j0_p_av)
 
-    kappa_ne = IntV(param.EL.kappa(ce_n_gs), mesh_ne) / param.NE.thickness
-    kappa_pe = IntV(param.EL.kappa(ce_p_gs), mesh_pe) / param.PE.thickness
-    kappa_sp = IntV(param.EL.kappa(ce_sp_gs), mesh_sp) / param.SP.thickness
-    R_EL = param.NE.thickness / kappa_ne  + 2* param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe
-    eta_EL = 2.0 * T * (1 - param.EL.tplus) * log(abs(ce_p[end]/ce_n[1])) - I_app / 2.0 * R_EL
+    # kappa_ne = IntV(param.EL.kappa(ce_n_gs), mesh_ne) / param.NE.thickness * param.NE.eps ^ param.NE.brugg
+    # kappa_pe = IntV(param.EL.kappa(ce_p_gs), mesh_pe) / param.PE.thickness * param.PE.eps ^ param.PE.brugg
+    # kappa_sp = IntV(param.EL.kappa(ce_sp_gs), mesh_sp) / param.SP.thickness * param.SP.eps ^ param.SP.brugg
+    # R_EL = param.NE.thickness / kappa_ne  + 2 * param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe
+    # dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) + I_app / 2.0 * R_EL # it seems to be minus here
+
+    ## below expression by Ferran et al. progress in energy 2022 gives better accuracy 
+    kappa_ne = param.EL.kappa(param.EL.ce0) * param.NE.eps ^ param.NE.brugg
+    kappa_pe = param.EL.kappa(param.EL.ce0) * param.PE.eps ^ param.PE.brugg
+    kappa_sp = param.EL.kappa(param.EL.ce0) * param.SP.eps ^ param.SP.brugg
+    R_EL = param.NE.thickness / kappa_ne / 3.0  + param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe / 3.0
+    dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) + I_app * R_EL 
+
 
     u_n = param.NE.U(cn_surf)
     u_p = param.PE.U(cp_surf)   
-    V_cell = u_p - u_n + eta_p - eta_n + eta_EL 
+    V_cell = u_p - u_n + eta_p - eta_n + dphi_e # + eta_S
     variables["negative particle surface lithium concentration"] = cn_surf
     variables["positive particle surface lithium concentration"] = cp_surf
     variables["cell voltage"] = V_cell 

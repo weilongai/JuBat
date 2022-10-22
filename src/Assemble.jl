@@ -39,10 +39,18 @@ function Assemble1D(Vi::Array{Int64}, Ni::Array{Float64}, coeff::Array{Float64},
     # To get the integration of 'Ni*coeff*weight*detJ'
     # to obtian the system matrix F(Vi) 
 
-    gslen1 = size(Ni, 2)
+    gslen1 = size(Ni, 1)
     F = zeros(Float64, mlen1)
     for i = 1 : gslen1
-            F[Vi[:, i]] .+= Ni[:,i] .* coeff[:]
+            F[Vi[i, :]] += Ni[i,:] * coeff[i]
     end
     return F
 end
+
+## the following code will not integrate correctly, because F[vi] has coverlap between its components
+    # gslen1 = size(Ni, 2)
+    # F = zeros(Float64, mlen1)
+    # for i = 1 : gslen1
+    #         F[Vi[:, i]] .+= Ni[:,i] .* coeff[:]
+    # end
+    # return F

@@ -1,5 +1,5 @@
 module JuBat
-using LinearAlgebra, SparseArrays, Plots, Parameters
+using LinearAlgebra, SparseArrays, Plots, Parameters, CSV
 
 include("Option.jl") 
 include("SetMesh.jl") 
@@ -20,6 +20,7 @@ include("Thermal.jl")
 include("Variables.jl")
 include("Initialisation.jl")
 
+include("solveODE.jl") 
 
 export Assemble, ElectrodeDiffusion, ElectrolyteDiffusion, Postprocessing, SetCase, SetMesh, ChooseCell
 export Mesh1D, GetGS, LagrangeBasis, GSweight, ShapeFunction1D, NormaliseParam, StandardVariables

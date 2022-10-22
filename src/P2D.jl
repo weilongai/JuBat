@@ -131,8 +131,7 @@ end
 
 function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::SparseArrays.SparseMatrixCSC{Float64, Int64}, variables::Dict{String, Union{Array{Float64},Float64}})
     iter_max = 100;
-    rel_tol = 1e-6
-    penalty = 10000
+    rel_tol = 1e-9
     mesh_np = case.mesh["negative particle"]
     mesh_pp = case.mesh["positive particle"]
     mesh_el = case.mesh["electrolyte"]

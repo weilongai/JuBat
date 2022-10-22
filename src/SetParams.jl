@@ -44,6 +44,7 @@
     heat_Q::Float64 = 0
     eps::Float64 = 0
     eps_fi::Float64 = 0
+    eps_s::Float64 = 0
     brugg::Float64 = 0
     k::Float64 = 0
     cs_max::Float64 = 0
@@ -175,8 +176,10 @@ function ChooseCell(CellType::String="LG M50")
     if CellType == "LG M50"
         include("../src/data/LGM50.jl") # pathof(JuBat)
     end
-    param_dim.PE.as = 3 * (1 - param_dim.PE.eps - param_dim.PE.eps_fi) / param_dim.PE.rs
-    param_dim.NE.as = 3 * (1 - param_dim.NE.eps - param_dim.PE.eps_fi) / param_dim.NE.rs
+    param_dim.PE.eps_s = 1 - param_dim.PE.eps - param_dim.PE.eps_fi
+    param_dim.NE.eps_s = 1 - param_dim.NE.eps - param_dim.NE.eps_fi
+    param_dim.PE.as = 3 * param_dim.PE.eps_s / param_dim.PE.rs
+    param_dim.NE.as = 3 * param_dim.NE.eps_s / param_dim.NE.rs
     param_dim.cell.area = param_dim.cell.width * param_dim.cell.length * param_dim.cell.no_layers
     param_dim.cell.mass = param_dim.cell.rho * param_dim.cell.volume
     param_dim.scale.I_typ = param_dim.cell.I1C / param_dim.cell.area

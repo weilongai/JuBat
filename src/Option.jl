@@ -17,9 +17,9 @@ using Parameters
     coupleMethod:: String  = "fully coupled"
     coupleOrder::Int64 = 0
     y0::Array{Float64} = []
-    dt::Array{Float64} = [2, 200]
+    dt::Array{Float64} = [1, 100]
     dtType::String  = "constant" # auto or manual
-    dtThreshold::Float64 = 0.001
+    dtThreshold::Float64 = 0.01
     solveType::String  = "Crank-Nicolson" # forward, backward or Crank-Nicolson
     outputType::String  = "auto" # auto or manual
     jacobi::String = "constant" # constant or update
