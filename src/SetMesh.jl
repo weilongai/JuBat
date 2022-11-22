@@ -30,14 +30,10 @@ function SetMesh(domain::Any, num::Any, type::String, gsorder::Int64=4)
      There should be more sophisticated methods to build a mesh, to be finished
 """
 
-    if type == "L2"
-            ele_node = 2
-            mesh = Mesh1D(domain, num, type, gsorder)
-    elseif type == "L3"
-            ele_node = 3
-            mesh = Mesh1D(domain, num, type, gsorder)
+    if type in ["L2", "L3"]
+        mesh = Mesh1D(domain, num, type, gsorder)
     else
-            error("Error: element type $type has not been implemented!\n")
+        error("Error: element type $type has not been implemented!\n")
     end
     return mesh
 end
@@ -69,14 +65,14 @@ function Mesh1D(domain::Vector{Float64}, num::Any, type::String= "L2", gsorder::
     element = zeros(Int64, element_number, ele_node)
     v = 0 
     ele = 0
-    for i = 1: size(num,1)
-        for j = 1:num[i]
+    for i in num
+        for j = 1:i
             ele = ele + 1
             element[ele, 1:ele_node] = v + 1:v + ele_node
             v = v + ele_node - 1
         end
     end
-    gs = GetGS(element[:,[1,ele_node]], node, gsorder, dim)
+    gs = GetGS(element, node, gsorder, type)
     mesh = Mesh(type, dim, node, nlen, element, gs)
     return mesh
 end
@@ -92,14 +88,8 @@ function PickElement(mesh::Mesh, v::Vector{Int64})
     """
     type = mesh.type
     dim = mesh.dimension
-
-    if type == "L2"
-        ele_node = 2
-    elseif type == "L3"
-        ele_node = 3
-    end 
     element = deepcopy(mesh.element[v,:])
-    node_pool = unique(reshape(element,:,1))
+    node_pool = sort(unique(reshape(element,:,1)))
     node_pool_pair = zeros(Int64, maximum(node_pool))
     nlen = length(node_pool)
     node_pool_pair[node_pool] = collect(1:nlen)
@@ -211,37 +201,40 @@ function MultipleMesh(mesh::Mesh, n::Int64)
     return meshnew
 end
 
-function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, dimen::Int64, v=collect(1:size(element,1)))
+function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, type::String, v=collect(1:size(element,1)))
+    if type == "L2" 
+        dimen=1
+        points = 1:2
+    elseif type == "L3"
+        dimen=1
+        points = [1, 3]
+    elseif type == "Q4"
+        dimen=2
+        points = 1:4
+    elseif type == "B8"
+        dimen=3
+        points = 1:8
+    end
     total_num = size(element,1) * order ^ dimen
     x = zeros(Float64, total_num ,dimen)
     weight = zeros(Float64, total_num)
     detJ = zeros(Float64, total_num) 
     ele = zeros(Int64, total_num)
     xloc = zeros(Float64, total_num, dimen)
-    if dimen==1
-        type="L2"
-        elen=2
-    elseif dimen==2
-        type="Q4"
-        elen=4
-    elseif dimen==3
-        type = "B8"
-        elen = 8
-    end
     w, q = GSweight(order,dimen)
     count0 = 0
     for e = 1:size(element, 1)
-        sctr = element[e, 1:elen]
+        sctr = element[e, points]
         for i = 1:size(w, 1)
             pt = q[i, :]
             N, dNdxi = LagrangeBasis(type, dimen, pt)
             J0 = dNdxi * node[sctr, 1:dimen]
             count0 = count0 + 1
-            x[count0,1:dimen] = N * node[sctr, 1:dimen]
+            x[count0, 1:dimen] = N * node[sctr, 1:dimen]
             weight[count0] = w[i]
             detJ[count0] = det(J0)
             ele[count0] = v[e]
-            xloc[count0,1:dimen] = pt
+            xloc[count0, 1:dimen] = pt
         end
     end
     Ni, dNi = ShapeFunction1D(element, type, node, xloc, ele)
@@ -252,7 +245,7 @@ end
 function LagrangeBasis(type::String, dimen::Int64, coord::Array{Float64})
     N = zeros(Float64,2^dimen, 1)
     dNdxi = zeros(Float64, 2^dimen, dimen)
-    if type == "L2"
+    if type == "L2" ||  type == "L3" 
         # 1------2 L2 TWO NODE LINE ELEMENT
         xi = coord[1]
         N[1,1] = (1.0 - xi)/2.0
@@ -465,14 +458,21 @@ end
 
 function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Float64}, xloc::Array{Float64}, v::Vector{Int64})
     if type == "L3"
-            f1 = x-> (x .- 1).^2 / 4 
-            f2 =  x-> (1 .- x.^2) / 2
-            f3 =  x-> (x .+ 1).^2 / 4
-            df1 = x-> (x .- 1) / 2
-            df2 = x-> -x
-            df3 = x-> (x .+ 1) / 2
+            # f1 = x-> (x .- 1).^2 / 4 
+            # f2 =  x-> (1 .- x.^2) / 2
+            # f3 =  x-> (x .+ 1).^2 / 4
+            # df1 = x-> (x .- 1) / 2
+            # df2 = x-> -x
+            # df3 = x-> (x .+ 1) / 2
+            ## another group of shape functions
+            f1 = x-> 0.5 * x.^2 - 0.5 * x
+            f2 =  x-> - x.^2 .+ 1
+            f3 =  x-> 0.5 * x.^2 + 0.5 * x
+            df1 = x-> x .- 1 / 2
+            df2 = x-> -2 * x
+            df3 = x-> x .+ 1 / 2
             
-            ele_length = node[element[v, 3]] - node[element[v, 1]]
+            ele_length = abs.(node[element[v, 3]] - node[element[v, 1]])
             Ni = cat(f1(xloc), f2(xloc), f3(xloc),dims=2)
             dNidX = cat(df1(xloc), df2(xloc), df3(xloc), dims=2)
             dXdx = 2 ./ ele_length * ones(1, 3)
@@ -483,7 +483,7 @@ function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Floa
             df1 =  x-> -0.5 * ones(Float64,size(x))
             df2 =  x-> 0.5 * ones(Float64,size(x))
             
-            ele_length = node[element[v, 2]] - node[element[v, 1]]
+            ele_length = abs.(node[element[v, 2]] - node[element[v, 1]])
             Ni = cat(f1(xloc), f2(xloc), dims=2)
             dNidX = cat(df1(xloc), df2(xloc), dims=2)
             dXdx = 2 ./ ele_length * ones(1, 2)

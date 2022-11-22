@@ -11,8 +11,8 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         mesh_pp = case.mesh["positive particle"]
         M_np, K_np = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
         M_pp, K_pp = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen) 
-        M_np = M_np .* param.scale.ts_n
-        M_pp = M_pp .* param.scale.ts_p
+        M_np = M_np .* param.scale.ts_n / param_dim.scale.t0
+        M_pp = M_pp .* param.scale.ts_p / param_dim.scale.t0
     end
     mesh_el = case.mesh["electrolyte"]        
     M_el, K_el = ElectrolyteDiffusion(param, mesh_el, mesh_el.nlen, variables)   
@@ -21,7 +21,7 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
 
     # # the following part seems not to affect the result, need to recheck later
     # # add interface boundary condition 
-    # xloc = [1.0, 0, 1.0, 0]
+    # xloc = [1.0, -1.0, 1.0, -1.0]
     # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
     # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xloc, v)  
     # v_ns = case.mesh["negative electrode"].nlen
@@ -75,9 +75,9 @@ end
 function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
     param = case.param
     variables = StandardVariables(case, 1)
-    I_app = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
-    j_n = - I_app / param.NE.as / param.NE.thickness
-    j_p = I_app / param.PE.as / param.PE.thickness
+    I_app =case.opt.Current(t * case.param.scale.t0) / param.scale.I_typ
+    j_n = I_app / param.NE.as / param.NE.thickness
+    j_p = - I_app / param.PE.as / param.PE.thickness
     mesh_ne = case.mesh["negative electrode"]
     mesh_pe = case.mesh["positive electrode"]
     mesh_sp = case.mesh["separator"]
@@ -111,19 +111,33 @@ function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
     # kappa_pe = IntV(param.EL.kappa(ce_p_gs), mesh_pe) / param.PE.thickness * param.PE.eps ^ param.PE.brugg
     # kappa_sp = IntV(param.EL.kappa(ce_sp_gs), mesh_sp) / param.SP.thickness * param.SP.eps ^ param.SP.brugg
     # R_EL = param.NE.thickness / kappa_ne  + 2 * param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe
-    # dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) + I_app / 2.0 * R_EL # it seems to be minus here
+    # dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) - I_app / 2.0 * R_EL # it seems to be minus here
 
     ## below expression by Ferran et al. progress in energy 2022 gives better accuracy 
+    # kappa_ne = param.EL.kappa(param.EL.ce0) * param.NE.eps ^ param.NE.brugg
+    # kappa_pe = param.EL.kappa(param.EL.ce0) * param.PE.eps ^ param.PE.brugg
+    # kappa_sp = param.EL.kappa(param.EL.ce0) * param.SP.eps ^ param.SP.brugg
+    # R_EL = param.NE.thickness / kappa_ne / 3.0  + param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe / 3.0
+    # dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) - I_app * R_EL  
+
+    # csn_av = IntV(ce_n_gs, mesh_ne) / param.NE.thickness
+    # csp_av = IntV(ce_p_gs, mesh_pe) / param.PE.thickness
+    # dphi_e = 2.0 * T * (1 - param.EL.tplus) * (csp_av - csn_av)/param.EL.ce0 - I_app * R_EL 
+
+
+    ## another implementation in pybamm
+    dphi_S =  I_app / 3 * (param.NE.thickness / param.NE.sig + param.PE.thickness / param.PE.sig)    
     kappa_ne = param.EL.kappa(param.EL.ce0) * param.NE.eps ^ param.NE.brugg
     kappa_pe = param.EL.kappa(param.EL.ce0) * param.PE.eps ^ param.PE.brugg
     kappa_sp = param.EL.kappa(param.EL.ce0) * param.SP.eps ^ param.SP.brugg
     R_EL = param.NE.thickness / kappa_ne / 3.0  + param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe / 3.0
-    dphi_e = 2.0 * T * (1 - param.EL.tplus) * log(ce_p[end]/ce_n[1]) + I_app * R_EL 
-
+    csn_av = IntV(ce_n_gs, mesh_ne) / param.NE.thickness
+    csp_av = IntV(ce_p_gs, mesh_pe) / param.PE.thickness
+    dphi_e = 2.0 * T * (1 - param.EL.tplus) * (csp_av - csn_av)/param.EL.ce0 - I_app * R_EL - dphi_S
 
     u_n = param.NE.U(cn_surf)
     u_p = param.PE.U(cp_surf)   
-    V_cell = u_p - u_n + eta_p - eta_n + dphi_e # + eta_S
+    V_cell = u_p - u_n + eta_p - eta_n + dphi_e
     variables["negative particle surface lithium concentration"] = cn_surf
     variables["positive particle surface lithium concentration"] = cp_surf
     variables["cell voltage"] = V_cell 
@@ -140,6 +154,6 @@ function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["electrolyte lithium concentration at separator Gauss point"] = ce_sp_gs
     variables["time"] = t
     variables["temperature"] = T
-    variables["cell current"] = case.opt.Current(t) / case.param_dim.cell.I1C
+    variables["cell current"] =case.opt.Current(t * case.param.scale.t0) / case.param_dim.cell.I1C
     return variables
 end

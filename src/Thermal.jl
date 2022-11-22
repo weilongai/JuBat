@@ -1,7 +1,7 @@
 function ThermalLumped(case::Case, variables::Dict{String, Any}, v::Int64, T::Array{Float64})
     param = case.param
     param_dim = case.param_dim
-    I_app = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
+    I_app =case.opt.Current(t * case.param.scale.t0)  / param.scale.I_typ
     MT = param.cell.mass * param.cell.heat_Q
     eta_n = variables["negative electrode overpotential"][1,v]
     eta_p = variables["positive electrode overpotential"][1,v]

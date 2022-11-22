@@ -20,16 +20,16 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)
         M_ne_p, K_ne_p = ElectrodePotential(param.NE, mesh_ne, mesh_ne.nlen)
         M_pe_p, K_pe_p = ElectrodePotential(param.PE, mesh_pe, mesh_pe.nlen) 
-        M_ne_d = M_ne_d .* param.scale.ts_n
-        M_pe_d = M_pe_d .* param.scale.ts_p    
+        M_ne_d = M_ne_d .* param.scale.ts_n / param_dim.scale.t0
+        M_pe_d = M_pe_d .* param.scale.ts_p / param_dim.scale.t0   
     end
     M_el_d, K_el_d = ElectrolyteDiffusion(param, mesh_el, mesh_el.nlen, variables)   
     M_el_p, K_el_p = ElectrolytePotential(param, mesh_el, mesh_el.nlen, variables) 
-    M_el_d = M_el_d .* param.scale.te 
+    M_el_d = M_el_d .* param.scale.te / param_dim.scale.t0  
 
     # # the following part seems not to affect the result, need to recheck later
     # # add interface boundary condition 
-    # xloc = [1.0, 0, 1.0, 0]
+    # xloc = [1.0, -1.0, 1.0, -1.0]
     # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
     # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xloc, v)  
     # v_ns = case.mesh["negative electrode"].nlen
@@ -41,21 +41,20 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     # ce = param.EL.ce0 # need to modify later
     # T = 298.0
     # De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
-    # K_el_d[v_ns, mesh_el.element[v[1],:]] .+= dNidx[1,:] .* De_eff
-    # K_el_d[v_ns, mesh_el.element[v[2],:]] .+= - dNidx[2,:] .* De_eff
-    # K_el_d[v_sp, mesh_el.element[v[3],:]] .+= dNidx[3,:] .* De_eff
-    # K_el_d[v_sp, mesh_el.element[v[4],:]] .+= - dNidx[4,:] .* De_eff
+    # K_el_d[v_ns, mesh_el.element[v[1],:]] .+= dNidx[1,:] .* De_eff * param.NE.eps ^ param.NE.brugg
+    # K_el_d[v_ns, mesh_el.element[v[2],:]] .+= - dNidx[2,:] .* De_eff * param.SP.eps ^ param.SP.brugg
+    # K_el_d[v_sp, mesh_el.element[v[3],:]] .+= dNidx[3,:] .* De_eff * param.SP.eps ^ param.SP.brugg
+    # K_el_d[v_sp, mesh_el.element[v[4],:]] .+= - dNidx[4,:] .* De_eff * param.PE.eps ^ param.PE.brugg
     # F[mesh_np.nlen + mesh_pp.nlen + v_ns] = 0
     # F[mesh_np.nlen + mesh_pp.nlen + v_sp] = 0
 
     # # need to update source term
     K_pot = blockdiag(K_ne_p, K_pe_p, K_el_p)
     phi_new, variables = P2D_potentials(case, yt, t, K_pot, variables)
-    F = [P2D_mass_BC(case, variables); phi_new]
-    n_con = mesh_ne.nlen + mesh_pe.nlen + mesh_el.nlen
-    M = blockdiag(M_ne_d, M_pe_d, M_el_d, M_ne_p, M_pe_p, M_el_p)
-    K = blockdiag(K_ne_d, K_pe_d, K_el_d, - sparse(1.0I, n_con, n_con))
-    return M, K, F, variables
+    F = P2D_mass_BC(case, variables)
+    M = blockdiag(M_ne_d, M_pe_d, M_el_d)
+    K = blockdiag(K_ne_d, K_pe_d, K_el_d)
+    return M, K, F, variables, phi_new
 end
 
 function P2D_mass_BC(case::Case, variables::Dict{String, Union{Array{Float64},Float64}})
@@ -88,7 +87,7 @@ end
 function P2D_charge_BC(case::Case, variables::Dict{String, Union{Array{Float64},Float64}})
     param = case.param
     t = variables["time"]
-    I_app = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
+    I_app =case.opt.Current(t * case.param.scale.t0) / param.scale.I_typ
     mesh_el = case.mesh["electrolyte"]
     Vi_el = mesh_el.element[mesh_el.gs.ele,:]
     n_sp_gs = case.opt.Ns * mesh_el.gs.order
@@ -101,14 +100,14 @@ function P2D_charge_BC(case::Case, variables::Dict{String, Union{Array{Float64},
     coeff_ne = mesh_ne.gs.weight .* mesh_ne.gs.detJ * param.NE.as .* j_n_gs
     Vi_ne = mesh_ne.element[mesh_ne.gs.ele,:]
     flux_ne = Assemble1D(Vi_ne, mesh_ne.gs.Ni, coeff_ne, mesh_ne.nlen)
-    flux_ne[1] += I_app # this item is wiped and not used
+    flux_ne[1] += - I_app # this item is wiped and not used
 
     # positive electrode charge source term
     mesh_pe = case.mesh["positive electrode"]
     coeff_pe = mesh_pe.gs.weight .* mesh_pe.gs.detJ * param.PE.as .* j_p_gs
     Vi_pe = mesh_pe.element[mesh_pe.gs.ele,:]
     flux_pe = Assemble1D(Vi_pe, mesh_pe.gs.Ni, coeff_pe, mesh_pe.nlen)
-    flux_pe[end] += - I_app    # this item is wiped and not used
+    flux_pe[end] += I_app    # this item is wiped and not used
 
     # electrolyte charge source term
     coeff_elc = mesh_el.gs.weight .* mesh_el.gs.detJ .* aj_el_gs
@@ -141,8 +140,8 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     # direct enforcement
     K_pot[1 ,:] .= 0.0
     K_pot[1, 1] = - 1.0
-    K_pot[mesh_ne.nlen + 1,:] .= 0.0
-    K_pot[mesh_ne.nlen + 1, mesh_ne.nlen + 1] = - 1.0
+    K_pot[mesh_ne.nlen + mesh_pe.nlen,:] .= 0.0
+    K_pot[mesh_ne.nlen + mesh_pe.nlen, mesh_ne.nlen + mesh_pe.nlen] = - 1.0
     K_pot[mesh_ne.nlen + mesh_pe.nlen + 1,:] .= 0.0
     K_pot[mesh_ne.nlen + mesh_pe.nlen + 1, mesh_ne.nlen + mesh_pe.nlen + 1] = - 1.0
 
@@ -154,7 +153,7 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     # K_pot[mesh_ne.nlen + mesh_pe.nlen + 1, mesh_ne.nlen + mesh_pe.nlen + 1] += - penalty
 
 
-    I_app = case.opt.Current(t) / case.param_dim.cell.area / case.param.scale.I_typ
+    I_app =case.opt.Current(t * case.param.scale.t0) / case.param.scale.I_typ
     j0_n_gs = variables["negative electrode exchange current density at Gauss point"]
     j0_p_gs = variables["positive electrode exchange current density at Gauss point"]
     u_n_gs = variables["negative electrode open circuit potential at Gauss point"]
@@ -173,7 +172,7 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
 
         # direct enforcement
         flux_ne[1] = 0.0
-        flux_pe[1] = u_p_gs[1] # this is reference value and will be corrected by iterations
+        flux_pe[end] = u_p_gs[end] # this is reference value and will be corrected by iterations
         flux_elc[1] = 0.0
 
         # # # penalty enforcement
@@ -199,8 +198,8 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel), mesh_ne)
         I_pp = IntV(case.param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel), mesh_pe)
         I_pn = IntV(case.param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel), mesh_pe)
-        Ve = - 2.0 * log((-I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
-        Vp = 2.0 * log((I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
+        Ve = - 2.0 * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
+        Vp = 2.0 * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
 
         # solve electrode & electrolyte potentials
         phi_new = [phis_n_rel; phis_p_rel .+ Vp; phie_rel .+ Ve]
@@ -297,7 +296,7 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["time"] = t
     variables["temperature"] = T
     variables["cell voltage"] = phis_p[end] - phis_n[1]
-    variables["cell current"] = case.opt.Current(t) / case.param_dim.cell.I1C
+    variables["cell current"] =case.opt.Current(t * case.param.scale.t0) / case.param_dim.cell.I1C
     return variables
 end
 

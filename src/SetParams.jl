@@ -57,10 +57,10 @@
     alpha::Float64 = 0
     U::Function = x-> 0.0
     dUdT::Function = x-> 0.0
-    M_d::Array{Float64} = []
-    K_d::Array{Float64} = []
-    M_p::Array{Float64} = []
-    K_p::Array{Float64} = []
+    M_d::SparseArrays.SparseMatrixCSC{Float64, Int64} = spzeros(0,0)
+    K_d::SparseArrays.SparseMatrixCSC{Float64, Int64} = spzeros(0,0)
+    M_p::SparseArrays.SparseMatrixCSC{Float64, Int64} = spzeros(0,0)
+    K_p::SparseArrays.SparseMatrixCSC{Float64, Int64} = spzeros(0,0)
 end
 
 @with_kw mutable struct Separator
@@ -128,8 +128,8 @@ end
 
 @with_kw mutable struct Scale
     L::Float64 = 1e-6
-    a0::Float64 = 1e6
     r0::Float64 = 1e-6
+    a0::Float64 = 1/r0
     t0::Float64 = 3600
     T_ref::Float64 = 298.
     F::Float64 = 96485.33289
@@ -174,7 +174,7 @@ function ChooseCell(CellType::String="LG M50")
     Output - param_dim::Params for all param_dim parameters
 """
     if CellType == "LG M50"
-        include("../src/data/LGM50.jl") # pathof(JuBat)
+        include("../src/parameters/LGM50.jl") # pathof(JuBat)
     end
     param_dim.PE.eps_s = 1 - param_dim.PE.eps - param_dim.PE.eps_fi
     param_dim.NE.eps_s = 1 - param_dim.NE.eps - param_dim.NE.eps_fi
@@ -182,24 +182,25 @@ function ChooseCell(CellType::String="LG M50")
     param_dim.NE.as = 3 * param_dim.NE.eps_s / param_dim.NE.rs
     param_dim.cell.area = param_dim.cell.width * param_dim.cell.length * param_dim.cell.no_layers
     param_dim.cell.mass = param_dim.cell.rho * param_dim.cell.volume
-    param_dim.scale.I_typ = param_dim.cell.I1C / param_dim.cell.area
+    param_dim.scale.I_typ = param_dim.cell.I1C
     param_dim.scale.L = param_dim.PE.thickness + param_dim.NE.thickness + param_dim.SP.thickness
-    param_dim.scale.j = param_dim.scale.I_typ / param_dim.scale.a0 / param_dim.scale.L
-    param_dim.scale.Ds_p = param_dim.scale.r0 / param_dim.scale.F / param_dim.PE.cs_max * param_dim.scale.j
-    param_dim.scale.Ds_n = param_dim.scale.r0 / param_dim.scale.F / param_dim.NE.cs_max * param_dim.scale.j
-    param_dim.scale.ts_p = param_dim.scale.F * param_dim.PE.cs_max * param_dim.scale.r0 / param_dim.scale.j / param_dim.scale.t0
-    param_dim.scale.ts_n = param_dim.scale.F * param_dim.NE.cs_max * param_dim.scale.r0 / param_dim.scale.j / param_dim.scale.t0
-    param_dim.scale.te = param_dim.scale.F * param_dim.EL.ce0 / param_dim.scale.a0 / param_dim.scale.j / param_dim.scale.t0
-    param_dim.scale.De = param_dim.scale.a0 * param_dim.scale.L^2 / param_dim.scale.F / param_dim.EL.ce0 * param_dim.scale.j
+    param_dim.scale.j = param_dim.scale.I_typ / param_dim.scale.a0 / param_dim.scale.L / param_dim.cell.area
+    param_dim.scale.ts_p = param_dim.scale.F * param_dim.PE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C
+    param_dim.scale.ts_n = param_dim.scale.F * param_dim.NE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C 
+    param_dim.scale.te = param_dim.scale.F * param_dim.EL.ce0 * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C
+    param_dim.scale.Ds_p = param_dim.scale.r0^2 / param_dim.scale.ts_p
+    param_dim.scale.Ds_n = param_dim.scale.r0^2 / param_dim.scale.ts_n
+
+    param_dim.scale.De = param_dim.scale.L^2 / param_dim.scale.te
     param_dim.scale.phi = param_dim.scale.T_ref * param_dim.scale.R / param_dim.scale.F
-    param_dim.scale.sig = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi
+    param_dim.scale.sig = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi / param_dim.cell.area 
+    param_dim.scale.kappa = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi / param_dim.cell.area 
     param_dim.scale.cp_max = param_dim.PE.cs_max
     param_dim.scale.cn_max = param_dim.NE.cs_max
     param_dim.scale.ce = param_dim.EL.ce0
     param_dim.scale.k_p = param_dim.scale.j / param_dim.PE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.k_n = param_dim.scale.j / param_dim.NE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.R_cell = param_dim.scale.phi / param_dim.scale.I_typ
-    param_dim.scale.kappa = param_dim.scale.L * param_dim.scale.I_typ / param_dim.scale.phi
     return param_dim
 end
 

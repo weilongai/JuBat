@@ -3,7 +3,7 @@ include("../src/JuBat.jl")
 
 param_dim = JuBat.ChooseCell("LG M50")
 opt = JuBat.Option()
-i=-5
+i= 5
 opt.Current = x-> i
 opt.time = [0 abs(5/i)*3600]
 t1 = time()

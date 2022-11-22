@@ -11,8 +11,8 @@ function SPM(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         mesh_pp = case.mesh["positive particle"]
         M_np, K_np = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
         M_pp, K_pp = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)   
-        M_np .*= param.scale.ts_n
-        M_pp .*= param.scale.ts_p 
+        M_np .*= param.scale.ts_n / param_dim.scale.t0
+        M_pp .*= param.scale.ts_p / param_dim.scale.t0
     end
     K = blockdiag(K_np, K_pp)
     M = blockdiag(M_np, M_pp)
@@ -38,9 +38,9 @@ end
 
 function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     param = case.param
-    I_app = case.opt.Current(t) / case.param_dim.cell.area / param.scale.I_typ
-    j_n = - I_app / param.NE.as / param.NE.thickness
-    j_p = I_app / param.PE.as / param.PE.thickness
+    I_app =case.opt.Current(t * case.param.scale.t0) / param.scale.I_typ
+    j_n = I_app / param.NE.as / param.NE.thickness
+    j_p = - I_app / param.PE.as / param.PE.thickness
     variables = StandardVariables(case, 1)
     var_list = collect(keys(case.index))
     for i in var_list
@@ -71,6 +71,6 @@ function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["positive electrode open circuit potential"] = u_p
     variables["time"] = t
     variables["temperature"] = T
-    variables["cell current"] = case.opt.Current(t) / case.param_dim.cell.I1C
+    variables["cell current"] =case.opt.Current(t * case.param.scale.t0) / case.param_dim.cell.I1C
     return variables
 end

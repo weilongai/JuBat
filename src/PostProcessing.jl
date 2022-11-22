@@ -5,13 +5,13 @@ function PostProcessing(case::Case, variables::Dict{String, Union{Array{Float64}
     result["cell current [A]"]= variables["cell current"][1:v] * case.param_dim.cell.I1C
     result["temperature [K]"] = variables["temperature"][1:v] * case.param_dim.scale.T_ref
     if case.opt.model == "SPM"
-        result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][1:v] * case.param.scale.cn_max
-        result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][1:v] * case.param.scale.cp_max
+        result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][:,1:v] * case.param.scale.cn_max
+        result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][:,1:v] * case.param.scale.cp_max
         result["negative particle surface lithium concentration [mol/m^3]"] = variables["negative particle surface lithium concentration"][1:v] * case.param.scale.cn_max
         result["positive particle surface lithium concentration [mol/m^3]"] = variables["positive particle surface lithium concentration"][1:v] * case.param.scale.cp_max
     elseif case.opt.model == "SPMe"
-        result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][1:v] * case.param.scale.cn_max
-        result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][1:v] * case.param.scale.cp_max
+        result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][:,1:v] * case.param.scale.cn_max
+        result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][:,1:v] * case.param.scale.cp_max
         result["negative particle surface lithium concentration [mol/m^3]"] = variables["negative particle surface lithium concentration"][1:v] * case.param.scale.cn_max
         result["positive particle surface lithium concentration [mol/m^3]"] = variables["positive particle surface lithium concentration"][1:v] * case.param.scale.cp_max
         result["negative electrode exchange current density [A/m^2]"] = variables["negative electrode exchange current density"][1:v] * case.param.scale.j

@@ -23,15 +23,16 @@ function Solve(case::Case)
     dt_temp_flag = false
     num = round(Int64, (t_end - t0)/dt * 1.5) 
     variables_hist = StandardVariables(case, num)
-
+    errors = zeros(num, 1)
 
     t = t0
     vt = 2  
     v = 1 
-    M_old, K_old, F_old, variables= CallModel(case, y0, t, jacobi="update") 
-    # dt_init = 1e-8
-    # y_old = (M_old - K_old * dt_init) \ (M_old * y0 + F_old * dt_init)
-    y_old = deepcopy(y0)
+    M_old, K_old, F_old, variables, y_phi= CallModel(case, y0, t, jacobi="update") 
+    dt_init = 1e-8
+    vc = 1:size(M_old,1)
+    y_c = (M_old - K_old * dt_init) \ (M_old * y0[vc] + F_old * dt_init)
+    y_old = vcat(y_c, y_phi)
     Variable_update!(variables_hist, variables, v)
     t += dt 
     if case.opt.jacobi == "constant"
@@ -42,17 +43,19 @@ function Solve(case::Case)
 
     # run the model
     while t <= t_end
-        M_new, K_new, F_new, variables = CallModel(case, y_old, t, jacobi="update") 
+        M_new, K_new, F_new, variables, y_phi = CallModel(case, y_old, t, jacobi="update") 
         Mt = M_new - theta * K_new * dt 
         Kt = (1 - theta) * K_old * dt + M_new 
         Ft = theta * F_new * dt + (1 - theta) * F_old * dt 
-        y_new = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * y_old + Ft) 
-        error_y = ErrorEstimation(case, y_old, y_new, dt_min / dt) 
-        # if error_y > 2 * case.opt.dtThreshold && case.opt.dtType == "auto" && dt >= dt_min/4
-        #     # reduce dt to dt/2 and recaculate y_new
-        #     dt = min(dt/2, dt_min)
-        #     t -= dt
-        # else 
+        y_c = convert(SparseMatrixCSC{Float64,Int}, Mt) \ (Kt * y_old[vc] + Ft) 
+        y_new = vcat(y_c, y_phi)
+        error_y = ErrorEstimation(case, y_old, y_new, dt_min/dt) 
+        errors[v] = error_y
+        if error_y > 2 * case.opt.dtThreshold && case.opt.dtType == "auto" && dt >= dt_min * 4
+            # reduce dt to dt/2 and recaculate y_new
+            dt = dt  /2
+            t -= dt
+        else 
             # record the results
             if case.opt.outputType == "auto" || abs(t - RunTime[vt]) < 1e-7
                 v = v + 1 
@@ -87,23 +90,26 @@ function Solve(case::Case)
             F_old = deepcopy(F_new)
             t += dt 
         end
-    # end
+    end
     result = PostProcessing(case, variables_hist, v) 
     print("finish the simulation\n") 
+    errors = errors[1:v] 
     return result
 end
 
 function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     if case.opt.model == "SPM"
         M, K, F, variables = SPM(case, yt, t, jacobi=jacobi) 
+        y_phi = Float64[]
     elseif case.opt.model == "SPMe"
         M, K, F, variables = SPMe(case, yt, t, jacobi=jacobi)
+        y_phi = Float64[]    
     elseif case.opt.model == "P2D"
-        M, K, F, variables = P2D(case, yt, t, jacobi=jacobi)     
+        M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)     
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end
-    return M, K, F, variables
+    return M, K, F, variables, y_phi
 end
 
 function RecordMatrix!(case::Case, M::SparseArrays.SparseMatrixCSC{Float64, Int64}, K::SparseArrays.SparseMatrixCSC{Float64, Int64})
@@ -127,7 +133,7 @@ function ErrorEstimation(case::Case, y_old::Array{Float64}, y_new::Array{Float64
         v_phi_np = case.index["negative electrode potential"]
         v_phi_pp = case.index["positive electrode potential"]
         v_phi_el = case.index["electrolyte potential"]
-        for i in [v_c_np, v_c_pp, v_c_el, v_phi_np, v_phi_pp, v_phi_el]
+        for i in [v_c_np, v_c_pp, v_c_el, v_phi_pp, v_phi_el]
             if norm(y_old[i])>0
                 error_y = max(error_y, norm(y_new[i] - y_old[i]) / norm(y_old[i]) * coeff)
             end
