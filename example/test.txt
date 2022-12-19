@@ -1,8 +1,0 @@
-sum(j_n)/31*case.param.NE.as*case.param.NE.thickness
-sum(j_p)/31*case.param.PE.as*case.param.PE.thickness
-sum(j_p_gs)/60*case.param.PE.as*case.param.PE.thickness
-sum(j_n_gs)/60*case.param.NE.as*case.param.NE.thickness
-# using CSV; using Tables;  CSV.write("my_file.csv", Tables.table(K_pot))
-
-result=readcell('result2.csv');
-ce=str2num(result{8,2});
