@@ -1,21 +1,21 @@
 mutable struct GaussPoint
-    x::Array{Float64}
-    xloc::Array{Float64}
+    x::Array{Float64}   # physical coordinates
+    xi::Array{Float64}  # local coordinates
     weight::Vector{Float64}
     detJ::Vector{Float64}
-    ele::Vector{Int64}
-    Ni::Array{Float64}
-    dNidx::Array{Float64}
-    order::Int64
+    ele::Vector{Int64}  # element information
+    Ni::Array{Float64}  # shape functions
+    dNidx::Array{Float64}   # derivatives of shape functions
+    order::Int64    # the order of Gauss quadrature
 end
 
 mutable struct Mesh
     type::String
     dimension::Int64
     node::Array{Float64}
-    nlen::Int64
+    nlen::Int64 # the length of nodes
     element::Array{Int64}
-    gs::GaussPoint
+    gs::GaussPoint # Gauss points
 end
 
 function SetMesh(domain::Any, num::Any, type::String, gsorder::Int64=4)
@@ -105,7 +105,7 @@ function PickElement(mesh::Mesh, v::Vector{Int64})
         gs.ele[i:len:length(v) * len] = 1:length(v)
     end
     gs.x = gs.x[v_gs,:]
-    gs.xloc = gs.xloc[v_gs,:]
+    gs.xi = gs.xi[v_gs,:]
     gs.weight = gs.weight[v_gs]
     gs.detJ = gs.detJ[v_gs]
     gs.Ni = gs.Ni[v_gs,:]
@@ -156,7 +156,7 @@ function CombineMesh(meshes::Vector{Mesh})
     element = zeros(Int64, len_element, size(meshes[1].element,2))
     node = zeros(Float64, len_node, size(meshes[1].node,2))
     x = zeros(Float64, len_gs, size(meshes[1].gs.x, 2))
-    xloc = zeros(Float64, len_gs, size(meshes[1].gs.xloc, 2))
+    xi = zeros(Float64, len_gs, size(meshes[1].gs.xi, 2))
     weight = zeros(Float64, len_gs)
     detJ = zeros(Float64, len_gs)
     ele = zeros(Int64, len_gs)
@@ -171,7 +171,7 @@ function CombineMesh(meshes::Vector{Mesh})
         ele[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.ele .+ v_ele 
         node[v_node + 1:v_node + n_node[i],:] = meshes[i].node
         x[v_gs + 1:v_gs + n_gs[i], :] = meshes[i].gs.x
-        xloc[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.xloc
+        xi[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.xi
         weight[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.weight
         detJ[v_gs + 1:v_gs + n_gs[i]]  = meshes[i].gs.detJ
         Ni[v_gs + 1:v_gs + n_gs[i], :]  = meshes[i].gs.Ni
@@ -181,7 +181,7 @@ function CombineMesh(meshes::Vector{Mesh})
         v_gs += n_gs[i]
     end
 
-    gs = GaussPoint(x, xloc, weight, detJ, ele, Ni, dNidx, gsorder)
+    gs = GaussPoint(x, xi, weight, detJ, ele, Ni, dNidx, gsorder)
     mesh_combined = Mesh(type, dimension, node, len_node, element, gs)
     return mesh_combined
 end
@@ -220,7 +220,7 @@ function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, type::
     weight = zeros(Float64, total_num)
     detJ = zeros(Float64, total_num) 
     ele = zeros(Int64, total_num)
-    xloc = zeros(Float64, total_num, dimen)
+    xi = zeros(Float64, total_num, dimen)
     w, q = GSweight(order,dimen)
     count0 = 0
     for e = 1:size(element, 1)
@@ -234,11 +234,11 @@ function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, type::
             weight[count0] = w[i]
             detJ[count0] = det(J0)
             ele[count0] = v[e]
-            xloc[count0, 1:dimen] = pt
+            xi[count0, 1:dimen] = pt
         end
     end
-    Ni, dNi = ShapeFunction1D(element, type, node, xloc, ele)
-    gs = GaussPoint(x, xloc, weight, detJ, ele, Ni, dNi, order)
+    Ni, dNi = ShapeFunction1D(element, type, node, xi, ele)
+    gs = GaussPoint(x, xi, weight, detJ, ele, Ni, dNi, order)
     return gs
 end
 
@@ -456,7 +456,7 @@ function GSweight(order::Int64, dimen::Int64)
     return W, Q
 end
 
-function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Float64}, xloc::Array{Float64}, v::Vector{Int64})
+function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Float64}, xi::Array{Float64}, v::Vector{Int64})
     if type == "L3"
             # f1 = x-> (x .- 1).^2 / 4 
             # f2 =  x-> (1 .- x.^2) / 2
@@ -473,8 +473,8 @@ function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Floa
             df3 = x-> x .+ 1 / 2
             
             ele_length = abs.(node[element[v, 3]] - node[element[v, 1]])
-            Ni = cat(f1(xloc), f2(xloc), f3(xloc),dims=2)
-            dNidX = cat(df1(xloc), df2(xloc), df3(xloc), dims=2)
+            Ni = cat(f1(xi), f2(xi), f3(xi),dims=2)
+            dNidX = cat(df1(xi), df2(xi), df3(xi), dims=2)
             dXdx = 2 ./ ele_length * ones(1, 3)
             dNidx = dNidX .* dXdx
     elseif type == "L2"
@@ -484,8 +484,8 @@ function ShapeFunction1D(element::Matrix{Int64}, type::String, node::Matrix{Floa
             df2 =  x-> 0.5 * ones(Float64,size(x))
             
             ele_length = abs.(node[element[v, 2]] - node[element[v, 1]])
-            Ni = cat(f1(xloc), f2(xloc), dims=2)
-            dNidX = cat(df1(xloc), df2(xloc), dims=2)
+            Ni = cat(f1(xi), f2(xi), dims=2)
+            dNidX = cat(df1(xi), df2(xi), dims=2)
             dXdx = 2 ./ ele_length * ones(1, 2)
             dNidx = dNidX .* dXdx
     else

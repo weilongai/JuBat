@@ -21,9 +21,9 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
 
     # # the following part seems not to affect the result, need to recheck later
     # # add interface boundary condition 
-    # xloc = [1.0, -1.0, 1.0, -1.0]
+    # xi = [1.0, -1.0, 1.0, -1.0]
     # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
-    # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xloc, v)  
+    # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xi, v)  
     # v_ns = case.mesh["negative electrode"].nlen
     # v_sp = case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1
     # M_el[v_ns, :] .= 0

@@ -1,9 +1,12 @@
 function  ElectrolytePotential(param::Params, mesh::Mesh, mlen::Int64, variables::Dict{String, Union{Array{Float64},Float64}})
     """
-        Generate the system equatiuon of Ma=Ku+F
-        where a=du/dt
-        inputs = param, mesh, flux, mlen
-        outputs = M or K
+        Generate the system equatiuon of M du/dt=Ku+F
+        inputs = electrode -- eledtrode parameter
+                 mesh -- mesh
+                 mlen -- length of unknowns
+                 variables -- dictionary of variables
+        outputs = M -- mass matrix
+                  K -- stiffness matrix
     """
     M = spzeros(mlen, mlen)
     Vi = mesh.element[mesh.gs.ele,:]

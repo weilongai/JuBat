@@ -29,9 +29,9 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
 
     # # the following part seems not to affect the result, need to recheck later
     # # add interface boundary condition 
-    # xloc = [1.0, -1.0, 1.0, -1.0]
+    # xi = [1.0, -1.0, 1.0, -1.0]
     # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
-    # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xloc, v)  
+    # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xi, v)  
     # v_ns = case.mesh["negative electrode"].nlen
     # v_sp = case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1
     # M_el_d[v_ns, :] .= 0
@@ -253,8 +253,8 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     eta_n = phis_n - phie_n - u_n
     j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(csn_surf .* (1.0 .- csn_surf) .* ce_n) .^ 0.5
     j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(csp_surf .* (1.0 .- csp_surf) .* ce_p) .^ 0.5
-    j_n = j0_n .* sinh.(0.5 .* eta_n) * 2.0
-    j_p = j0_p .* sinh.(0.5 .* eta_p) * 2.0
+    j_n = j0_n .* sinh.(0.5 .* eta_n / T) * 2.0
+    j_p = j0_p .* sinh.(0.5 .* eta_p / T) * 2.0
 
     csn_surf_gs = sum(gs_ne.Ni .* csn_surf[element_ne[gs_ne.ele,:]], dims=2)
     csp_surf_gs = sum(gs_pe.Ni .* csp_surf[element_pe[gs_pe.ele,:]], dims=2)
@@ -271,8 +271,8 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     eta_n_gs = phis_n_gs - phie_n_gs - u_n_gs
     j0_n_gs =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(csn_surf_gs .* (1.0 .- csn_surf_gs) .* ce_n_gs) .^ 0.5
     j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(csp_surf_gs .* (1.0 .- csp_surf_gs) .* ce_p_gs) .^ 0.5
-    j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs) * 2.0
-    j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs) * 2.0
+    j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs / T) * 2.0
+    j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs / T) * 2.0
 
     variables["negative electrode interfacial current density"] = j_n
     variables["positive electrode interfacial current density"] = j_p

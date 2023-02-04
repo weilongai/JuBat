@@ -85,9 +85,9 @@ end
 
 
 mutable struct Case
-    param_dim::Params
-    param::Params
-    opt::Option
-    mesh::Dict{String, Mesh}
-    index::Dict{String, Union{Array{Int64}, Int64}}
+    param_dim::Params   # parameters
+    param::Params   # dimensionless parameters
+    opt::Option # option for solver
+    mesh::Dict{String, Mesh}    # mesh for discretisation
+    index::Dict{String, Union{Array{Int64}, Int64}} # the index of unknowns
 end
