@@ -105,7 +105,9 @@ function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M, K, F, variables = SPMe(case, yt, t, jacobi=jacobi)
         y_phi = Float64[]    
     elseif case.opt.model == "P2D"
-        M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)     
+        M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)   
+    elseif case.opt.model == "sP2D"
+        M, K, F, variables, y_phi = sP2D(case, yt, t, jacobi=jacobi)   
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end

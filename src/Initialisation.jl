@@ -14,7 +14,7 @@ function ModelInitialisation(case::Case)
             Ne = case.mesh["electrolyte"].nlen
             ce0 = ones(Float64, Ne, 1) *  case.param.EL.ce0
             y0 = [csn0;  csp0; ce0]
-        elseif case.opt.model == "P2D"
+        elseif case.opt.model == "P2D" ||  case.opt.model == "sP2D"
             Nrn = case.mesh["negative particle"].nlen
             Nrp = case.mesh["positive particle"].nlen
             Ne = case.mesh["electrolyte"].nlen

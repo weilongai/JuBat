@@ -19,7 +19,7 @@ function PostProcessing(case::Case, variables::Dict{String, Union{Array{Float64}
         result["negative electrode overpotential [V]"]= variables["negative electrode overpotential"][1:v] * case.param.scale.phi
         result["positive electrode overpotential [V]"]= variables["positive electrode overpotential"][1:v] * case.param.scale.phi
         result["electrolyte lithium concentration [mol/m^3]"] = variables["electrolyte lithium concentration"][:,1:v] * case.param.scale.ce
-    elseif case.opt.model == "P2D"
+    elseif case.opt.model == "P2D" || case.opt.model == "sP2D"
         result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][:,1:v] * case.param.scale.cn_max
         result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][:,1:v] * case.param.scale.cp_max
         result["negative particle surface lithium concentration [mol/m^3]"] = variables["negative particle surface lithium concentration"][:,1:v] * case.param.scale.cn_max
