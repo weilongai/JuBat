@@ -33,7 +33,7 @@ function PostProcessing(case::Case, variables::Dict{String, Union{Array{Float64}
         result["positive electrode potential [V]"] = variables["positive electrode potential"][:,1:v] * case.param.scale.phi
         result["electrolyte potential in negative electrode [V]"] = variables["electrolyte potential in negative electrode"][:,1:v] * case.param.scale.phi
         result["electrolyte potential in positive electrode [V]"] = variables["electrolyte potential in positive electrode"][:,1:v] * case.param.scale.phi
-        result["electrolyte potentials [V]"] = variables["electrolyte potential"][:,1:v] * case.param.scale.phi
+        result["electrolyte potential [V]"] = variables["electrolyte potential"][:,1:v] * case.param.scale.phi
         result["negative electrode open circuit potential [V]"] = variables["negative electrode open circuit potential"] * case.param.scale.phi
         result["positive electrode open circuit potential [V]"] = variables["positive electrode open circuit potential"] * case.param.scale.phi
         result["negative electrode interfacial current density [A/m^2]"]  = variables["negative electrode interfacial current density"] * case.param.scale.j

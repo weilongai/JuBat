@@ -76,19 +76,17 @@ function sP2D_potentials(case::Case, yt::Array{Float64}, t::Float64, variables::
     xn_gs = mesh_ne.gs.x 
     xp_gs = mesh_pe.gs.x 
     Li = [param.NE.thickness, param.SP.thickness, param.PE.thickness]
-    v_sp = Int64((mesh_sp.nlen + 1) / 2)
-    dcedx = (ce_sp[v_sp + 1] - ce_sp[v_sp - 1]) / (mesh_el.node[v_sp + 1] - mesh_el.node[v_sp - 1])
-    ks = 2 * T * (1 - param.EL.tplus) / ce_sp[v_sp] * dcedx
     dcedx = (ce_n[end] - ce_n[end - 1]) / (mesh_ne.node[end] - mesh_ne.node[end - 1])
     ce_v = (ce_n[end] + ce_n[end - 1]) / 2
-    kn = 2 * T * (1 - param.EL.tplus) / ce_v * dcedx
-    kappa_n_eff = param.EL.kappa(ce_v) * param.NE.eps ^ param.NE.brugg * param.EL.dlnf_dlnc(ce_v)
+    kn = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
+    kappa_n_eff = param.EL.kappa(ce_v) * param.NE.eps ^ param.NE.brugg
     kn -= I_app / kappa_n_eff
     dcedx = (ce_p[2] - ce_p[1]) / (mesh_pe.node[2] - mesh_pe.node[1])
     ce_v = (ce_p[2] + ce_p[1]) / 2
-    kp = 2 * T * (1 - param.EL.tplus) / ce_v * dcedx
-    kappa_p_eff = param.EL.kappa(ce_v) * param.PE.eps ^ param.PE.brugg * param.EL.dlnf_dlnc(ce_v)
+    kp = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
+    kappa_p_eff = param.EL.kappa(ce_v) * param.PE.eps ^ param.PE.brugg
     kp -= I_app / kappa_p_eff
+    ks = (kn * param.NE.eps ^ param.NE.brugg + kp * param.PE.eps ^ param.PE.brugg) / 2 / param.SP.eps ^ param.SP.brugg
     ki = [kn, ks, kp]
     phie_n_gs_rel = phie_fit(xn_gs, Li, ki, 0.0)
     phie_p_gs_rel = phie_fit(xp_gs, Li, ki, 0.0)
@@ -111,16 +109,46 @@ function phie_fit(x::Union{Array{Float64},Float64}, Li::Array{Float64}, ki::Arra
     # a function to fit potential curve in electrolyte 
     Ln, Ls, Lp = Li
     kn, ks, kp = ki
+    L = Ln + Ls + Lp
     phie = zeros(length(x))
+    # # one-stage fitting
+    # for i in eachindex(x)
+    #     if x[i] <= Ln
+    #         phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
+    #     elseif x[i] < Ln + Ls
+    #         phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
+    #     else
+    #         phie[i]= -0.5 * kp / Lp * (x[i] - L)^2 + kp * Lp/2 + ks * Ls/2 + phie0
+    #     end
+    # end
+
+    # one-stage fitting - 2
+    pi = 3.1415
     for i in eachindex(x)
         if x[i] <= Ln
-            phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
+            phie[i]= - 2 * kn * Ln / pi * cos(x[i] * pi / 2 / Ln) - ks * Ls/2 + phie0
         elseif x[i] < Ln + Ls
             phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
         else
-            phie[i]= -0.5 * kp / Lp * (x[i] - Ln - Ls)^2 + kp * Lp/2 + ks * Ls/2 + phie0
+            phie[i]= 2 * kp * Lp /pi * sin((x[i] - Ln - Ls) / Lp * pi / 2) + ks * Ls/2 + phie0
         end
     end
+
+    # # two-stage fitting
+    # for i in eachindex(x)
+    #     if x[i] <= Ln/2
+    #         phie[i]= kn / Ln * x[i]^2 - kn * Ln * 3/4 - ks * Ls/2 + phie0
+    #     elseif x[i] <= Ln
+    #         phie[i]= kn * x[i] - kn * Ln - ks * Ls/2 + phie0
+    #     elseif x[i] < Ln + Ls
+    #         phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
+    #     elseif x[i] <= Ln + Ls + Lp/2
+    #         phie[i]= kp * (x[i] - Ls - Ln) + ks * Ls/2 + phie0
+    #     else
+    #         phie[i]= -kp / Lp * (x[i] - L)^2 + kp * Lp * 3/4 + ks * Ls/2 + phie0
+    #     end
+    # end
+
     return phie
 end
 
@@ -202,4 +230,3 @@ function sP2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["cell current"] =case.opt.Current(t * case.param.scale.t0) / case.param_dim.cell.I1C
     return variables
 end
-
