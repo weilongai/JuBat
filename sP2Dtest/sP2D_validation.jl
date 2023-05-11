@@ -15,6 +15,8 @@ result = JuBat.Solve(case1)
 opt.model = "P2D"
 case2 = JuBat.SetCase(param_dim, opt)
 result2 = JuBat.Solve(case2)
+
+# ploting results
 plot(result["time [s]"], result["cell voltage [V]"], label="sP2D", xlabel="time [s]", ylabel="cell voltage [V]", lw=1)
 plot!(result2["time [s]"], result2["cell voltage [V]"], label="P2D", linestyle =:dot, linecolor =:black, lw=2.5)
 savefig("sP2D.png")

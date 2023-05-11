@@ -72,17 +72,17 @@ function sP2D_potentials(case::Case, yt::Array{Float64}, t::Float64, variables::
     ce_sp = variables["electrolyte lithium concentration in separator"] 
 
     phis_n = 0
-    phis_p = 0
+    phis_p0 = u_p_gs[1]
     xn_gs = mesh_ne.gs.x 
     xp_gs = mesh_pe.gs.x 
     Li = [param.NE.thickness, param.SP.thickness, param.PE.thickness]
     dcedx = (ce_n[end] - ce_n[end - 1]) / (mesh_ne.node[end] - mesh_ne.node[end - 1])
-    ce_v = (ce_n[end] + ce_n[end - 1]) / 2
+    ce_v = ce_n[end]
     kn = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
     kappa_n_eff = param.EL.kappa(ce_v) * param.NE.eps ^ param.NE.brugg
     kn -= I_app / kappa_n_eff
     dcedx = (ce_p[2] - ce_p[1]) / (mesh_pe.node[2] - mesh_pe.node[1])
-    ce_v = (ce_p[2] + ce_p[1]) / 2
+    ce_v = ce_p[1]
     kp = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
     kappa_p_eff = param.EL.kappa(ce_v) * param.PE.eps ^ param.PE.brugg
     kp -= I_app / kappa_p_eff
@@ -91,13 +91,13 @@ function sP2D_potentials(case::Case, yt::Array{Float64}, t::Float64, variables::
     phie_n_gs_rel = phie_fit(xn_gs, Li, ki, 0.0)
     phie_p_gs_rel = phie_fit(xp_gs, Li, ki, 0.0)
     eta_n_gs_rel = phis_n .- phie_n_gs_rel - u_n_gs
-    eta_p_gs_rel = phis_p .- phie_p_gs_rel - u_p_gs
+    eta_p_gs_rel = phis_p0 .- phie_p_gs_rel - u_p_gs
     I_np = IntV(param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel), mesh_ne)
     I_nn = IntV(param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel), mesh_ne)
     I_pp = IntV(param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel), mesh_pe)
     I_pn = IntV(param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel), mesh_pe)
     phie0 = - 2.0 * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0)) / 2.0 / I_np)
-    phis_p = 2.0 * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + phie0
+    phis_p = 2.0 * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + phie0 + phis_p0
     phie = phie_fit(mesh_el.node, Li, ki, phie0)
     phi_new = [phis_n * ones(mesh_ne.nlen,1); phis_p * ones(mesh_pe.nlen,1); phie]
     yt_new = [yt[1:mesh_np.nlen + mesh_pp.nlen + mesh_el.nlen,1]; phi_new]
@@ -111,7 +111,7 @@ function phie_fit(x::Union{Array{Float64},Float64}, Li::Array{Float64}, ki::Arra
     kn, ks, kp = ki
     L = Ln + Ls + Lp
     phie = zeros(length(x))
-    # # one-stage fitting
+    # # one-stage fitting - quad function
     # for i in eachindex(x)
     #     if x[i] <= Ln
     #         phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
@@ -122,7 +122,7 @@ function phie_fit(x::Union{Array{Float64},Float64}, Li::Array{Float64}, ki::Arra
     #     end
     # end
 
-    # one-stage fitting - 2
+    # one-stage fitting - sin function
     pi = 3.1415
     for i in eachindex(x)
         if x[i] <= Ln
