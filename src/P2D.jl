@@ -194,12 +194,12 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         eta_n_gs_rel = phis_n_gs_rel - phie_n_gs_rel - u_n_gs
         eta_p_gs_rel = phis_p_gs_rel - phie_p_gs_rel - u_p_gs
     # # reference potential  
-        I_np = IntV(case.param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel), mesh_ne)
-        I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel), mesh_ne)
-        I_pp = IntV(case.param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel), mesh_pe)
-        I_pn = IntV(case.param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel), mesh_pe)
-        Ve = - 2.0 * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
-        Vp = 2.0 * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
+        I_np = IntV(case.param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel / T), mesh_ne)
+        I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel / T), mesh_ne)
+        I_pp = IntV(case.param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel / T), mesh_pe)
+        I_pn = IntV(case.param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel / T), mesh_pe)
+        Ve = - 2.0 * T * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
+        Vp = 2.0 * T * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
 
         # solve electrode & electrolyte potentials
         phi_new = [phis_n_rel; phis_p_rel .+ Vp; phie_rel .+ Ve]

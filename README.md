@@ -7,4 +7,4 @@ Jubat is a compact, readable and fast framework for battery modelling and will b
 
 Thermal model and degradation models are under development.
 
-Reference: a preprint will be uploaded.
+Reference: W. Ai, Y. Liu, Improving the convergence rate of Newman’s battery model using 2nd order finite element method, J. Energy Storage. 67 (2023) 107512. https://doi.org/10.1016/j.est.2023.107512
