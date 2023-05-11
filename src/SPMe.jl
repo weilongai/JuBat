@@ -16,7 +16,7 @@ function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     end
     mesh_el = case.mesh["electrolyte"]        
     M_el, K_el = ElectrolyteDiffusion(param, mesh_el, mesh_el.nlen, variables)   
-    M_el = M_el .* param.scale.te / param_dim.scale.t0
+    M_el = M_el .* param.scale.te / param_dim.scale.t0 
     F = SPMe_BC(case, variables)
 
     # # the following part seems not to affect the result, need to recheck later
