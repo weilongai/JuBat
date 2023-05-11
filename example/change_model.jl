@@ -1,41 +1,21 @@
 using Plots, CSV, DataFrames
 include("../src/JuBat.jl") 
-
 param_dim = JuBat.ChooseCell("LG M50")
 opt = JuBat.Option()
-Crate = 1
-i= 5*Crate
+i = 5
 opt.Current = x-> i
-opt.time = [0 abs(5/i)*3500]
-opt.dt = [1 1]
-opt.dtType = "constant"
-opt.model = "SPM"
-case = JuBat.SetCase(param_dim, opt)
-t1 = time()
-result = JuBat.Solve(case)
-
-t2 = time()
-opt.model = "SPMe"
-case1 = JuBat.SetCase(param_dim, opt)
-result1 = JuBat.Solve(case1)
-
-t3 = time()
-opt.model = "P2D"
-case1 = JuBat.SetCase(param_dim, opt)
-result2 = JuBat.Solve(case1)
-t4 = time()
-
-# Plot
-plot(result["time [s]"], result["cell voltage [V]"], label="SPM", xlabel="time [s]", ylabel="cell voltage [V]", linecolor =:black, lw=1.5)
-plot!(result1["time [s]"], result1["cell voltage [V]"], label="SPMe", linecolor =:blue, lw=1.5)
-plot!(result2["time [s]"], result2["cell voltage [V]"], label="P2D", linecolor =:red, lw=1.5)
-print("running time: SPM=$(t2-t1) s; SPMe=$(t3-t2) s; P2D=$(t4-t3) s \n")
-path = pwd()
-file = path * "/src/data/pybamm_DFN_1C.csv"
-result = CSV.read(file, DataFrame, header = 0)
-pybamm_DFN_1C = Matrix(result)
-plot!(pybamm_DFN_1C[1,:], pybamm_DFN_1C[2,:],label="pybamm_P2D", linestyle =:dot, linecolor =:red,lw=2.5)
-file = path * "/src/data/pybamm_SPM_1C.csv"
-result = CSV.read(file, DataFrame, header = 0)
-pybamm_SPM_1C = Matrix(result)
-plot!(pybamm_SPM_1C[1,:], pybamm_SPM_1C[2,:],label="pybamm_SPM", linestyle =:dot,linecolor =:black, lw=2.5)
+opt.time = [0 abs(5/i)*3540]
+models = ["SPM", "SPMe", "P2D"]
+colors = [:black, :blue, :red]
+path = pwd() * "/src/data/"
+for i = 1:3
+    opt.model = models[i]
+    case = JuBat.SetCase(param_dim, opt)
+    result = JuBat.Solve(case)
+    plot!(result["time [s]"], result["cell voltage [V]"], label=models[i] * " (JuBat)", linecolor=colors[i])
+    result = CSV.read(path * "pybamm_" * models[i] * "_1C.csv", DataFrame, header = 0)
+    pybamm_1C = Matrix(result)
+    plot!(pybamm_1C[:,1], pybamm_1C[:,2],label=models[i] * " (PyBaMM)", linestyle =:dot, linecolor=colors[i], lw=2)
+end
+plot!(xlabel="time [s]", ylabel="cell voltage [V]", lw=1.5, fontsize=12, size=(400,300), title="1 C discharge", legend=:bottomleft)
+savefig("change_model.pdf")
