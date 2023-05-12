@@ -27,27 +27,6 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     M_el_p, K_el_p = ElectrolytePotential(param, mesh_el, mesh_el.nlen, variables) 
     M_el_d = M_el_d .* param.scale.te / param_dim.scale.t0  
 
-    # # the following part seems not to affect the result, need to recheck later
-    # # add interface boundary condition 
-    # xi = [1.0, -1.0, 1.0, -1.0]
-    # v = [case.opt.Nn, case.opt.Nn + 1, case.opt.Nn + case.opt.Ns, case.opt.Nn + case.opt.Ns + 1]
-    # _, dNidx = ShapeFunction1D(mesh_el.element, mesh_el.type, mesh_el.node, xi, v)  
-    # v_ns = case.mesh["negative electrode"].nlen
-    # v_sp = case.mesh["negative electrode"].nlen + case.mesh["separator"].nlen - 1
-    # M_el_d[v_ns, :] .= 0
-    # M_el_d[v_sp, :] .= 0
-    # K_el_d[v_ns, :] .= 0
-    # K_el_d[v_sp, :] .= 0
-    # ce = param.EL.ce0 # need to modify later
-    # T = 298.0
-    # De_eff =  param.EL.De(ce) * Arrhenius(param.EL.Eac_D, T)
-    # K_el_d[v_ns, mesh_el.element[v[1],:]] .+= dNidx[1,:] .* De_eff * param.NE.eps ^ param.NE.brugg
-    # K_el_d[v_ns, mesh_el.element[v[2],:]] .+= - dNidx[2,:] .* De_eff * param.SP.eps ^ param.SP.brugg
-    # K_el_d[v_sp, mesh_el.element[v[3],:]] .+= dNidx[3,:] .* De_eff * param.SP.eps ^ param.SP.brugg
-    # K_el_d[v_sp, mesh_el.element[v[4],:]] .+= - dNidx[4,:] .* De_eff * param.PE.eps ^ param.PE.brugg
-    # F[mesh_np.nlen + mesh_pp.nlen + v_ns] = 0
-    # F[mesh_np.nlen + mesh_pp.nlen + v_sp] = 0
-
     # # need to update source term
     K_pot = blockdiag(K_ne_p, K_pe_p, K_el_p)
     phi_new, variables = P2D_potentials(case, yt, t, K_pot, variables)
@@ -145,20 +124,12 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     K_pot[mesh_ne.nlen + mesh_pe.nlen + 1,:] .= 0.0
     K_pot[mesh_ne.nlen + mesh_pe.nlen + 1, mesh_ne.nlen + mesh_pe.nlen + 1] = - 1.0
 
-    # # # penalty enforcement
-    # K_pot[1 ,:] .= 0.0
-    # K_pot[1, 1] = - 1.0
-    # K_pot[mesh_ne.nlen + 1,:] .= 0.0
-    # K_pot[mesh_ne.nlen + 1, mesh_ne.nlen + 1] += - penalty
-    # K_pot[mesh_ne.nlen + mesh_pe.nlen + 1, mesh_ne.nlen + mesh_pe.nlen + 1] += - penalty
-
-
     I_app =case.opt.Current(t * case.param.scale.t0) / case.param.scale.I_typ
     j0_n_gs = variables["negative electrode exchange current density at Gauss point"]
     j0_p_gs = variables["positive electrode exchange current density at Gauss point"]
     u_n_gs = variables["negative electrode open circuit potential at Gauss point"]
     u_p_gs = variables["positive electrode open circuit potential at Gauss point"] 
-
+    T = variables["temperature"]
     gs_ne = mesh_ne.gs
     gs_pe = mesh_pe.gs
     element_ne = mesh_ne.element
@@ -174,11 +145,6 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         flux_ne[1] = 0.0
         flux_pe[end] = u_p_gs[end] # this is reference value and will be corrected by iterations
         flux_elc[1] = 0.0
-
-        # # # penalty enforcement
-        # flux_ne[1] = 0.0
-        # flux_pe[1] += 0 #u_p_gs[1] * penalty # this is reference value and will be corrected by iterations
-        # flux_elc[1] += 0.0
 
         F_pot = [flux_ne; flux_pe; flux_elc]
         phi_new_rel = - K_pot \ F_pot
