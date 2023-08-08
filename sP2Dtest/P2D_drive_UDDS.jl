@@ -10,8 +10,8 @@ current=Matrix(data)
 current_intpolation = LinearInterpolation(current[:,1],current[:,2])
 opt.Current = x-> current_intpolation(x)
 opt.time = collect(0:1:1369)
-opt.dt = [0.1, 12]
-opt.dtType = "auto"
+opt.dt = [1, 20]
+opt.dtType = "fixed"
 opt.outputType = "manual"
 
 opt.model = "P2D"
