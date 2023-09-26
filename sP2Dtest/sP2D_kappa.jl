@@ -12,7 +12,7 @@ opt.Nrn = 20
 opt.Ns = 20
 i= 5*Crate
 opt.Current = x-> i
-opt.time = [ 0 3400/Crate]
+opt.time = [ 0 3500/Crate]
 opt.model = "sP2D" # choose model, other options are "SPM" or "SPMe"
 case = JuBat.SetCase(param_dim, opt)
 result = JuBat.Solve(case)
@@ -27,7 +27,7 @@ case2 = JuBat.SetCase(param_dim2, opt)
 result2 = JuBat.Solve(case2)
 
 # recording results
-path="c:/code/sP2D/prestudy/sP2D_sin" * string(Crate) * "C_kappa"
+path="c:/code/sP2D/prestudy/sP2D_quad" * string(Crate) * "C_kappa"
 times = result["time [s]"]
 voltage = result["cell voltage [V]"]
 phie = result["electrolyte potential [V]"]'

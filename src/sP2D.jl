@@ -77,15 +77,18 @@ function sP2D_potentials(case::Case, yt::Array{Float64}, t::Float64, variables::
     xp_gs = mesh_pe.gs.x 
     Li = [param.NE.thickness, param.SP.thickness, param.PE.thickness]
     dcedx = (ce_n[end] - ce_n[end - 1]) / (mesh_ne.node[end] - mesh_ne.node[end - 1])
-    ce_v = ce_n[end]
+    ce_v = (ce_n[end] + ce_n[end-1] ) / 2
     kn = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
     kappa_n_eff = param.EL.kappa(ce_v) * param.NE.eps ^ param.NE.brugg
     kn -= I_app / kappa_n_eff
     dcedx = (ce_p[2] - ce_p[1]) / (mesh_pe.node[2] - mesh_pe.node[1])
-    ce_v = ce_p[1]
+    ce_v = ( ce_p[1] + ce_p[2]) / 2
     kp = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_v * dcedx
     kappa_p_eff = param.EL.kappa(ce_v) * param.PE.eps ^ param.PE.brugg
     kp -= I_app / kappa_p_eff
+    v_sp = Int64((mesh_sp.nlen + 1) / 2)
+    dcedx = (ce_sp[v_sp + 1] - ce_sp[v_sp - 1]) / (mesh_sp.node[v_sp + 1] - mesh_sp.node[v_sp - 1])
+    # ks = 2 * T * (1 - param.EL.tplus) * param.EL.dlnf_dlnc(ce_v) / ce_sp[v_sp] * dcedx
     ks = (kn * param.NE.eps ^ param.NE.brugg + kp * param.PE.eps ^ param.PE.brugg) / 2 / param.SP.eps ^ param.SP.brugg
     ki = [kn, ks, kp]
     phie_n_gs_rel = phie_fit(xn_gs, Li, ki, 0.0)
@@ -112,27 +115,27 @@ function phie_fit(x::Union{Array{Float64},Float64}, Li::Array{Float64}, ki::Arra
     L = Ln + Ls + Lp
     phie = zeros(length(x))
     # # one-stage fitting - quad function
-    # for i in eachindex(x)
-    #     if x[i] <= Ln
-    #         phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
-    #     elseif x[i] < Ln + Ls
-    #         phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
-    #     else
-    #         phie[i]= -0.5 * kp / Lp * (x[i] - L)^2 + kp * Lp/2 + ks * Ls/2 + phie0
-    #     end
-    # end
-
-    # # one-stage fitting - sin function
-    pi = 3.1415
     for i in eachindex(x)
         if x[i] <= Ln
-            phie[i]= - 2 * kn * Ln / pi * cos(x[i] * pi / 2 / Ln) - ks * Ls/2 + phie0
+            phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
         elseif x[i] < Ln + Ls
             phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
         else
-            phie[i]= 2 * kp * Lp /pi * sin((x[i] - Ln - Ls) / Lp * pi / 2) + ks * Ls/2 + phie0
+            phie[i]= -0.5 * kp / Lp * (x[i] - L)^2 + kp * Lp/2 + ks * Ls/2 + phie0
         end
     end
+
+    # # one-stage fitting - sin function
+    # pi = 3.1415
+    # for i in eachindex(x)
+    #     if x[i] <= Ln
+    #         phie[i]= - 2 * kn * Ln / pi * cos(x[i] * pi / 2 / Ln) - ks * Ls/2 + phie0
+    #     elseif x[i] < Ln + Ls
+    #         phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
+    #     else
+    #         phie[i]= 2 * kp * Lp /pi * sin((x[i] - Ln - Ls) / Lp * pi / 2) + ks * Ls/2 + phie0
+    #     end
+    # end
 
     # # two-stage fitting
     # for i in eachindex(x)
