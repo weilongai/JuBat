@@ -78,8 +78,8 @@ function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
     ce_p_gs = sum(mesh_pe.gs.Ni .* ce_p[mesh_pe.element[mesh_pe.gs.ele, :]], dims = 2)
     ce_sp_gs = sum(mesh_sp.gs.Ni .* ce_sp[mesh_sp.element[mesh_sp.gs.ele, :]], dims = 2)
 
-    j0_n_gs =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* (cn_surf .* abs.(1.0 .- cn_surf) .* ce_n_gs) .^ 0.5
-    j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* (cp_surf .* abs(1.0 .- cp_surf) .* ce_p_gs) .^ 0.5
+    j0_n_gs =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(cn_surf .* (1.0 .- cn_surf) .* ce_n_gs) .^ 0.5
+    j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(cp_surf .* (1.0 .- cp_surf) .* ce_p_gs) .^ 0.5
     j0_n_av = IntV(j0_n_gs, mesh_ne) / param.NE.thickness
     j0_p_av = IntV(j0_p_gs, mesh_pe) / param.PE.thickness
     eta_n = 2.0 * T * asinh.(j_n / 2.0 / j0_n_av)
@@ -87,20 +87,20 @@ function SPMe_variables(case::Case, yt::Array{Float64}, t::Float64)
 
     ## another implementation in pybamm
     dphi_S =  I_app / 3 * (param.NE.thickness / param.NE.sig + param.PE.thickness / param.PE.sig)    
-    kappa_ne = param.EL.kappa(param.EL.ce0) * param.NE.eps ^ param.NE.brugg
-    kappa_pe = param.EL.kappa(param.EL.ce0) * param.PE.eps ^ param.PE.brugg
-    kappa_sp = param.EL.kappa(param.EL.ce0) * param.SP.eps ^ param.SP.brugg
+    kappa_ne = param.EL.kappa(param.EL.ce0, T) * param.NE.eps ^ param.NE.brugg
+    kappa_pe = param.EL.kappa(param.EL.ce0, T) * param.PE.eps ^ param.PE.brugg
+    kappa_sp = param.EL.kappa(param.EL.ce0, T) * param.SP.eps ^ param.SP.brugg
     R_EL = param.NE.thickness / kappa_ne / 3.0  + param.SP.thickness / kappa_sp + param.PE.thickness / kappa_pe / 3.0
     csn_av = IntV(ce_n_gs, mesh_ne) / param.NE.thickness
     csp_av = IntV(ce_p_gs, mesh_pe) / param.PE.thickness
-    dphi_e = 2.0 * T * (1 - param.EL.tplus) * (csp_av - csn_av)/param.EL.ce0 - I_app * R_EL - dphi_S
+    dphi_e = 2.0 * T * (1 - param.EL.tplus) * (csp_av - csn_av)/param.EL.ce0 .- I_app * R_EL .- dphi_S
 
-    u_n = param.NE.U(cn_surf)
-    u_p = param.PE.U(cp_surf)   
+    u_n = param.NE.U(cn_surf) .+ (T .- case.param.cell.T0) .* param.NE.dUdT(cn_surf)
+    u_p = param.PE.U(cp_surf) .+ (T .- case.param.cell.T0) .* param.PE.dUdT(cp_surf)   
     V_cell = u_p - u_n + eta_p - eta_n + dphi_e
     variables["negative particle surface lithium concentration"] = cn_surf
     variables["positive particle surface lithium concentration"] = cp_surf
-    variables["cell voltage"] = V_cell 
+    variables["cell voltage"] = V_cell[1]
     variables["negative electrode exchange current density"] = j0_n_av
     variables["positive electrode exchange current density"] = j0_p_av
     variables["negative electrode interfacial current density"] = j_n

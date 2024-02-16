@@ -1,0 +1,11 @@
+{
+    "julia.debuggerDefaultCompiled": [
+
+
+        "ALL_MODULES_EXCEPT_MAIN",   
+        "-Statistics.", 
+        "Main.Core",
+        "Main.Core.",
+        "-Main.Core.Main"  
+    ]
+}

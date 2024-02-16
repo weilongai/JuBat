@@ -29,7 +29,7 @@ PE.Eac_D = 0
 PE.Eac_k = 17800
 PE.alpha = 0.5
 PE.U = x-> -0.8090*x .+ 4.4875 - 0.0428*tanh.(18.5138*(x .- 0.5542)) - 17.7326*tanh.(15.7890*(x .- 0.3117)) + 17.5842*tanh.(15.9308*(x .- 0.3120))
-PE.dUdT = x-> 279.9800214*(tanh.(15.789*x .- 4.9214313)^2) + 0.79239064*(tanh.(18.5138*x .- 10.26034796)^2) .- 1.4510386800000594 - (280.13037336*(tanh.(15.9308*x .- 4.9704096)^2))
+PE.dUdT = x-> 0 * x
 
 # Negative Electrode
 NE = Electrode()
@@ -52,12 +52,12 @@ NE.Eac_D = 0.
 NE.Eac_k = 35000.
 NE.alpha = 0.5
 NE.U = x-> 1.97938*exp.(-39.3631*x) .+ 0.2482 - 0.0909*tanh.(29.8538*(x .- 0.1234)) - 0.04478*tanh.(14.9159*(x .- 0.2769)) - 0.0205*tanh.(30.4444*(x .- 0.6103))
-NE.dUdT = x-> -0.62411*((sech.(18.5802 .- 30.4444*x))^2 + 4.34813*(sech.(3.68396 .- 29.8538*x))^2 + 1.07022*(sech.(4.13021 .- 14.9159*x))^2) - 211.794*exp.(-39.3631*x)
+NE.dUdT = x-> 0 * x
 
 # Electrolyte
 EL = Electrolyte()
-EL.De = x-> 8.794e-11 * (x ./ 1000) .^ 2 - 3.972e-10 * (x ./ 1000) .+ 4.862e-10
-EL.kappa = x-> 0.1297 * (x ./ 1000) .^ 3 - 2.51 * (x ./ 1000) .^ 1.5 + 3.329 * (x ./ 1000)
+EL.De = (x, y=0)-> 8.794e-11 * (x ./ 1000) .^ 2 - 3.972e-10 * (x ./ 1000) .+ 4.862e-10
+EL.kappa = (x, y=0)-> 0.1297 * (x ./ 1000) .^ 3 - 2.51 * (x ./ 1000) .^ 1.5 + 3.329 * (x ./ 1000)
 EL.dlnf_dlnc = x-> 1
 EL.rho = 1290
 EL.heat_Q = 0
@@ -86,11 +86,14 @@ cell.cooling_surface = 5.31e-3
 cell.v_h = 4.2
 cell.v_l = 2.5
 cell.volume = 2.42e-5
-cell.rho = 0.
+cell.rho = 0.0
 cell.alphaT = 0.
-cell.heat_Q = 0.
-cell.h = 0.
+cell.heat_Q = 0.0
+cell.h = 10.
 cell.T0 = 298
+cell.T_amb = 298
+cell.area = cell.width * cell.length * cell.no_layers
+cell.mass = cell.rho * cell.volume
 
 # Positive Current Collector
 PCC = CurrentCollector()

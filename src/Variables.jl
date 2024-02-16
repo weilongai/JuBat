@@ -65,6 +65,8 @@ function StandardVariables(case::Case, num::Int64)
         variables["positive electrode overpotential at Gauss point"] = zeros(Float64, Ne_pgs, num)
         variables["negative electrode exchange current density at Gauss point"] = zeros(Float64, Ne_ngs, num)
         variables["positive electrode exchange current density at Gauss point"] = zeros(Float64, Ne_pgs, num)
+        variables["negative particle surface lithium concentration at Gauss point"] = zeros(Float64, Ne_ngs, num)
+        variables["positive particle surface lithium concentration at Gauss point"] = zeros(Float64, Ne_pgs, num)
     end
 
     if "temperature" in collect(keys(case.index))

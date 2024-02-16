@@ -13,8 +13,8 @@ for i = 1:3
     case = JuBat.SetCase(param_dim, opt)
     result = JuBat.Solve(case)
     plot!(result["time [s]"], result["cell voltage [V]"], label=models[i] * " (JuBat)", linecolor=colors[i])
-    result = CSV.read(path * "pybamm_" * models[i] * "_1C.csv", DataFrame, header = 0)
-    pybamm_1C = Matrix(result)
+    result1 = CSV.read(path * "pybamm_" * models[i] * "_1C.csv", DataFrame, header = 1)
+    pybamm_1C = Matrix(result1)
     plot!(pybamm_1C[:,1], pybamm_1C[:,2],label=models[i] * " (PyBaMM)", linestyle =:dot, linecolor=colors[i], lw=2)
 end
 plot!(xlabel="time [s]", ylabel="cell voltage [V]", lw=1.5, fontsize=12, size=(400,300), title="1 C discharge", legend=:bottomleft)
