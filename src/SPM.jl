@@ -53,14 +53,14 @@ function SPM_variables(case::Case, yt::Array{Float64}, t::Float64)
     end
     cn_surf = variables["negative particle surface lithium concentration"]
     cp_surf = variables["positive particle surface lithium concentration"]
-    u_n = param.NE.U(cn_surf)
-    u_p = param.PE.U(cp_surf)
+    u_n = param.NE.U(cn_surf) .+ (T .- case.param.cell.T0) * param.NE.dUdT(cn_surf)
+    u_p = param.PE.U(cp_surf) .+ (T .- case.param.cell.T0) * param.PE.dUdT(cp_surf)
     j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) * sqrt.(cn_surf .* param.EL.ce0 .* abs.(1.0 .- cn_surf))
     j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) * sqrt.(cp_surf .* param.EL.ce0 .* abs.(1.0 .- cp_surf))
-    eta_n = 2 * T * asinh.(j_n / 2.0 ./ j0_n)
-    eta_p = 2 * T * asinh.(j_p / 2.0 ./ j0_p)
+    eta_n = 2 * T .* asinh.(j_n / 2.0 ./ j0_n)
+    eta_p = 2 * T .* asinh.(j_p / 2.0 ./ j0_p)
     V_cell = u_p - u_n + eta_p - eta_n 
-    variables["cell voltage"] = V_cell 
+    variables["cell voltage"] = V_cell[1]
     variables["negative electrode exchange current density"] = j0_n
     variables["positive electrode exchange current density"] = j0_p
     variables["negative electrode interfacial current density"] = j_n

@@ -82,9 +82,9 @@ end
 end
 
 @with_kw mutable struct Electrolyte
-    De::Function = x-> 0
-    kappa::Function = x-> 0
-    dlnf_dlnc::Function = x-> 0
+    De::Function = (x,y=0)-> 0
+    kappa::Function = (x,y=0)-> 0
+    dlnf_dlnc::Function = (x,y=0)-> 0
     rho::Float64 = 0 
     heat_Q::Float64 = 0
     tplus::Float64 = 0
@@ -96,7 +96,7 @@ end
 @with_kw mutable struct Cell
     length::Float64 = 0
     width::Float64 = 0
-    # wrapper::Float64
+    wrapper::Float64 = 0
     I1C::Float64 = 0
     no_layers::Int32 = 0 
     capacity::Float64 = 0 
@@ -171,23 +171,40 @@ function ChooseCell(CellType::String="LG M50")
     This is a function choose a cell
     Input - CellType::String, including options of 
         1. "LG M50" for the LG M50 cells
+        2. "Northrop"  for the Northrop cells from LIONSIMBA
     Output - param_dim::Params for all param_dim parameters
 """
     if CellType == "LG M50"
         include("../src/parameters/LGM50.jl") # pathof(JuBat)
+    elseif CellType == "Northrop"
+        include("../src/parameters/Northrop.jl") # pathof(JuBat)
     end
     param_dim.PE.eps_s = 1 - param_dim.PE.eps - param_dim.PE.eps_fi
     param_dim.NE.eps_s = 1 - param_dim.NE.eps - param_dim.NE.eps_fi
     param_dim.PE.as = 3 * param_dim.PE.eps_s / param_dim.PE.rs
     param_dim.NE.as = 3 * param_dim.NE.eps_s / param_dim.NE.rs
-    param_dim.cell.area = param_dim.cell.width * param_dim.cell.length * param_dim.cell.no_layers
+    if abs(param_dim.cell.rho) < 1e-8
+        param_dim.cell.rho = (
+            param_dim.PE.rho * param_dim.PE.thickness + param_dim.NE.rho * param_dim.NE.thickness +
+            param_dim.SP.rho * param_dim.SP.thickness + param_dim.NCC.rho * param_dim.NCC.thickness + param_dim.PCC.rho * param_dim.PCC.thickness
+        ) / (param_dim.PE.thickness + param_dim.NE.thickness + param_dim.SP.thickness + param_dim.NCC.thickness + param_dim.PCC.thickness)
+    end
+    if abs(param_dim.cell.heat_Q) < 1e-8
+        param_dim.cell.heat_Q = (
+            param_dim.PE.heat_Q * param_dim.PE.rho * param_dim.PE.thickness + param_dim.NE.heat_Q * param_dim.NE.rho * param_dim.NE.thickness +
+            param_dim.SP.heat_Q * param_dim.SP.rho * param_dim.SP.thickness + param_dim.NCC.heat_Q * param_dim.NCC.rho * param_dim.NCC.thickness +
+            param_dim.PCC.heat_Q * param_dim.PCC.rho * param_dim.PCC.thickness
+        ) / (param_dim.PE.rho * param_dim.PE.thickness + param_dim.NE.rho * param_dim.NE.thickness + param_dim.SP.rho * param_dim.SP.thickness + 
+        param_dim.NCC.rho * param_dim.NCC.thickness  + param_dim.PCC.rho * param_dim.PCC.thickness
+        ) 
+    end  
     param_dim.cell.mass = param_dim.cell.rho * param_dim.cell.volume
     param_dim.scale.I_typ = param_dim.cell.I1C
     param_dim.scale.L = param_dim.PE.thickness + param_dim.NE.thickness + param_dim.SP.thickness
     param_dim.scale.j = param_dim.scale.I_typ / param_dim.scale.a0 / param_dim.scale.L / param_dim.cell.area
-    param_dim.scale.ts_p = param_dim.scale.F * param_dim.PE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C
-    param_dim.scale.ts_n = param_dim.scale.F * param_dim.NE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C 
-    param_dim.scale.te = param_dim.scale.F * param_dim.EL.ce0 * param_dim.cell.area * param_dim.scale.L / param_dim.cell.I1C
+    param_dim.scale.ts_p = param_dim.scale.F * param_dim.PE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.scale.I_typ
+    param_dim.scale.ts_n = param_dim.scale.F * param_dim.NE.cs_max * param_dim.cell.area * param_dim.scale.L / param_dim.scale.I_typ 
+    param_dim.scale.te = param_dim.scale.F * param_dim.EL.ce0 * param_dim.cell.area * param_dim.scale.L / param_dim.scale.I_typ
     param_dim.scale.Ds_p = param_dim.scale.r0^2 / param_dim.scale.ts_p
     param_dim.scale.Ds_n = param_dim.scale.r0^2 / param_dim.scale.ts_n
 
@@ -264,21 +281,21 @@ function NormaliseParam(param_dim::Params)
     param.NCC.sig = param_dim.NCC.sig / param.scale.sig
 
     # electrolyte
-    param.EL.De = x-> param_dim.EL.De(x * param.scale.ce) / param.scale.De
-    param.EL.kappa = x-> param_dim.EL.kappa(x * param.scale.ce) / param.scale.kappa
+    param.EL.De = (x, y=1)-> param_dim.EL.De(x * param.scale.ce, y * param.scale.T_ref) / param.scale.De
+    param.EL.kappa = (x, y=1)-> param_dim.EL.kappa(x * param.scale.ce, y * param.scale.T_ref) / param.scale.kappa
     param.EL.tplus = param_dim.EL.tplus
     param.EL.ce0 = param_dim.EL.ce0 / param.scale.ce
 
 
     # cell
     param.cell.cooling_surface = param_dim.cell.cooling_surface / param_dim.cell.area
-    param.cell.h = param_dim.cell.cooling_surface * param_dim.cell.area * param.scale.T_ref / param_dim.cell.capacity
+    param.cell.h = param_dim.cell.h * param_dim.cell.area * param.scale.T_ref / param.scale.phi / param.scale.I_typ
     param.cell.mass = param_dim.cell.mass / param_dim.cell.mass
-    param.cell.heat_Q = param_dim.cell.heat_Q * param_dim.cell.mass * param.scale.T_ref / param_dim.cell.capacity / param.scale.t0 
+    param.cell.heat_Q = param_dim.cell.heat_Q * param_dim.cell.mass * param.scale.T_ref / param.scale.t0 / param.scale.phi / param.scale.I_typ
     param.cell.T_amb = param_dim.cell.T_amb / param.scale.T_ref 
     param.cell.T0 = param_dim.cell.T0 / param.scale.T_ref 
-    param.cell.area = param_dim.cell.area * param.scale.phi * param.scale.I_typ / param_dim.cell.capacity
-    param.cell.volume = param_dim.cell.volume * param.scale.phi / param.scale.L * param.scale.I_typ / param_dim.cell.capacity
+    param.cell.area = param_dim.cell.area / param_dim.cell.area
+    param.cell.volume = param_dim.cell.volume / param_dim.scale.L^3
 
     return param
 end

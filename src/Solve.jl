@@ -90,6 +90,9 @@ function Solve(case::Case)
             F_old = deepcopy(F_new)
             t += dt 
         end
+        if variables["cell voltage"] * case.param.scale.phi < case.param.cell.v_l || variables["cell voltage"] * case.param.scale.phi > case.param.cell.v_h
+            break
+        end
     end
     result = PostProcessing(case, variables_hist, v) 
     print("finish the simulation\n") 
@@ -108,6 +111,12 @@ function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)     
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
+    end
+    if case.opt.thermalmodel == "lumped"
+        MT, FT = ThermalLumped(case, variables)        
+        M = blockdiag(M, sparse(MT))
+        K = blockdiag(K, sparse(zeros(1,1)))
+        F = [F; FT]
     end
     return M, K, F, variables, y_phi
 end
