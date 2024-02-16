@@ -1,14 +1,14 @@
 using Plots, CSV, DataFrames
 include("../src/JuBat.jl") 
 param_dim = JuBat.ChooseCell("Northrop")
-param_dim.cell.v_l = 2.7
+param_dim.cell.v_l = 2.5
 opt = JuBat.Option()
 opt.thermalmodel = "lumped"
 colors = [:black, :blue, :red, :green]
 path = pwd() * "/src/data/"
 opt.dtType = "constant"
 opt.jacobi = "update"
-Crates = [1, 3, 5] #Crates = [1, 3, 5]
+Crates = [1, 3] #Crates = [1, 3, 5]
 I1C = 30 * 2.05272
 pV = plot(xlabel="Output capacity [Ah]", ylabel="Cell voltage [V]", legend_column = 2)
 pT = plot(xlabel="Output capacity [Ah]", ylabel="Temperature [K]", legend_column = 2)

@@ -3,7 +3,7 @@ include("../src/JuBat.jl")
 param_dim = JuBat.ChooseCell("Northrop")
 opt = JuBat.Option()
 opt.thermalmodel = "none"
-Crate = 0.1
+Crate = 1
 I1C = 30 * 2.05272
 i= I1C * Crate
 opt.Current = x-> i
