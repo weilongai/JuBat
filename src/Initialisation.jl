@@ -26,10 +26,15 @@ function ModelInitialisation(case::Case)
             phie0 = - ones(Float64, Ne, 1) * case.param.NE.U(case.param.NE.cs0)
             phis_p =  ones(Float64, Nn, 1) * case.param.PE.U(case.param.PE.cs0) .+ phie0[1] # guessed values are not used
             phis_n = zeros(Float64, Np, 1)
-
-            y0 = [csn0;  csp0; ce0; phis_n; phis_p; phie0]
+            y0 = [csn0;  csp0; ce0]
         else
             error( "Error: $(case.opt.model{1}) model has not been implemented!\n ")
+        end
+        if case.opt.thermalmodel == "lumped"
+            y0 =[y0; case.param.cell.T0]
+        end
+        if case.opt.model == "P2D"
+            y0 =[y0; phis_n; phis_p; phie0]
         end
     else
         y0 = case.opt.y0 

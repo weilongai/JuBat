@@ -1,6 +1,7 @@
 using Plots, CSV, DataFrames, Interpolations
 include("../src/JuBat.jl") 
 param_dim = JuBat.ChooseCell("LG M50")
+param_dim.cell.v_h = 4.3
 opt = JuBat.Option()
 path = pwd() * "/src/data/drive_cycles"
 data = CSV.read(path * "/UDDS.csv", DataFrame, header = 3)

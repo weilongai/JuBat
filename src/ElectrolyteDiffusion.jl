@@ -21,9 +21,9 @@ function  ElectrolyteDiffusion(param::Params, mesh::Mesh, mlen::Int64, variables
 
     M = Assemble(Vi, Vj, mesh.gs.Ni, mesh.gs.Ni, coeff , mlen)
     T = variables["temperature"]
-    De_ne =  param.EL.De(ce_n_gs) * param.NE.eps ^ param.NE.brugg
-    De_sp =  param.EL.De(ce_sp_gs) * param.SP.eps ^ param.SP.brugg
-    De_pe =  param.EL.De(ce_p_gs) * param.PE.eps ^ param.PE.brugg
+    De_ne =  param.EL.De(ce_n_gs,T) * param.NE.eps ^ param.NE.brugg
+    De_sp =  param.EL.De(ce_sp_gs,T) * param.SP.eps ^ param.SP.brugg
+    De_pe =  param.EL.De(ce_p_gs,T) * param.PE.eps ^ param.PE.brugg
     De_eff =  [De_ne; De_sp; De_pe] * Arrhenius(param.EL.Eac_D, T)
     coeff = - De_eff .* mesh.gs.weight .* mesh.gs.detJ
     K = Assemble(Vi, Vj, mesh.gs.dNidx, mesh.gs.dNidx, coeff , mlen)

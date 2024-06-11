@@ -19,6 +19,7 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
             "negative particle surface lithium concentration"=> mesh_np.nlen,
             "positive particle surface lithium concentration"=> mesh_np.nlen + mesh_pp.nlen,
             )
+        v0 = mesh_np.nlen + mesh_pp.nlen
         if opt.model == "SPMe"
             # electrolyte
             space = [0, param.NE.thickness,  param.NE.thickness + param.SP.thickness, param.PE.thickness + param.SP.thickness + param.NE.thickness]
@@ -31,11 +32,11 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
             mesh["negative electrode"] = mesh_el_ne
             mesh["separator"] = mesh_el_sp
             mesh["positive electrode"] = mesh_el_pe
-            v0 = mesh_np.nlen + mesh_pp.nlen
             index["electrolyte lithium concentration"] = v0 .+ collect(1:mesh_el.nlen)
             index["electrolyte lithium concentration in negative electrode"] = v0 .+ collect(1:mesh_el_ne.nlen)
             index["electrolyte lithium concentration in positive electrode"] = v0 + mesh_el.nlen .- collect(mesh_el_pe.nlen - 1:-1:0)
             index["electrolyte lithium concentration in separator"] = v0 + mesh_el_ne.nlen .+ collect(1: mesh_el_sp.nlen)
+            v0 += mesh_el.nlen
         end
     elseif opt.model == "P2D" || opt.model == "sP2D"
         # negative particle
@@ -71,6 +72,12 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
         index["electrolyte lithium concentration in positive electrode"] = v0 + mesh_el.nlen .- collect(mesh_el_pe.nlen - 1:-1:0)
         index["electrolyte lithium concentration in separator"] = v0 + mesh_el_ne.nlen - 1 .+ collect(1: mesh_el_sp.nlen)
         v0 += mesh_el.nlen
+    end 
+    if opt.thermalmodel == "lumped"
+        index["temperature"] = [v0 + 1]
+        v0 += 1
+    end
+    if opt.model == "P2D"
         index["negative electrode potential"] = v0 .+ collect(1:mesh_el_ne.nlen)
         index["positive electrode potential"] = v0 .+ mesh_el_ne.nlen .+ collect(1:mesh_el_pe.nlen)
         v0 += mesh_el_ne.nlen + mesh_el_pe.nlen
@@ -78,7 +85,7 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
         index["electrolyte potential in negative electrode"] =  v0 .+ collect(1:mesh_el_ne.nlen)
         index["electrolyte potential in positive electrode"] =  v0 .+ mesh_el.nlen .- collect(mesh_el_pe.nlen - 1:-1:0)
         index["electrolyte potential in separator"] =  v0 + mesh_el_ne.nlen - 1 .+ collect(1: mesh_el_sp.nlen)
-    end 
+    end
     case = Case(param_dim, param, opt, mesh, index)
     return case
 end

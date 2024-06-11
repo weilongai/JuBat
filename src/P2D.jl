@@ -96,7 +96,7 @@ function P2D_charge_BC(case::Case, variables::Dict{String, Union{Array{Float64},
     ce_gs = sum(mesh_el.gs.Ni .* ce[mesh_el.element[mesh_el.gs.ele,:]], dims=2)
     dcedx_gs = sum(mesh_el.gs.dNidx .* ce[mesh_el.element[mesh_el.gs.ele,:]], dims=2)
     T = variables["temperature"]
-    kappa_D_eff = param.EL.kappa(ce_gs) .* mesh_el.gs.weight .* mesh_el.gs.detJ
+    kappa_D_eff = param.EL.kappa(ce_gs, T) .* mesh_el.gs.weight .* mesh_el.gs.detJ
     tau_ne = param.NE.eps ^ param.NE.brugg * ones(size(j_n_gs))
     tau_pe = param.PE.eps ^ param.PE.brugg * ones(size(j_p_gs))
     tau_sp = param.SP.eps ^ param.SP.brugg * ones(n_sp_gs, 1)
@@ -135,6 +135,8 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     gs_pe = mesh_pe.gs
     element_ne = mesh_ne.element
     element_pe = mesh_pe.element
+    Vp0 = u_p_gs[end] # this is reference value and will be corrected by iterations
+    # Ve = 0
     for i = 1:iter_max
     # # relative potential        
         j_n_gs_old = variables["negative electrode interfacial current at Gauss point"]
@@ -144,7 +146,7 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
 
         # direct enforcement
         flux_ne[1] = 0.0
-        flux_pe[end] = u_p_gs[end] # this is reference value and will be corrected by iterations
+        flux_pe[end] = Vp0
         flux_elc[1] = 0.0
 
         F_pot = [flux_ne; flux_pe; flux_elc]
@@ -161,16 +163,19 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         eta_n_gs_rel = phis_n_gs_rel - phie_n_gs_rel - u_n_gs
         eta_p_gs_rel = phis_p_gs_rel - phie_p_gs_rel - u_p_gs
     # # reference potential  
-        I_np = IntV(case.param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel / T), mesh_ne)
-        I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel / T), mesh_ne)
-        I_pp = IntV(case.param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel / T), mesh_pe)
-        I_pn = IntV(case.param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel / T), mesh_pe)
-        Ve = - 2.0 * T * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
-        Vp = 2.0 * T * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
+        I_np = IntV(case.param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel ./ T), mesh_ne)
+        I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel ./ T), mesh_ne)
+        I_pp = IntV(case.param.PE.as .* j0_p_gs .* exp.(0.5 * eta_p_gs_rel ./ T), mesh_pe)
+        I_pn = IntV(case.param.PE.as .* j0_p_gs .* exp.(-0.5 * eta_p_gs_rel ./ T), mesh_pe)
+        Ve = - 2.0 * T[1] * log((I_app + sqrt(4.0 * I_np * I_nn + I_app^2.0))/ 2.0 / I_np)
+        Vp = 2.0 * T[1] * log((- I_app + sqrt(4.0 * I_pp * I_pn + I_app^2.0)) / 2.0 / I_pp) + Ve
 
         # solve electrode & electrolyte potentials
         phi_new = [phis_n_rel; phis_p_rel .+ Vp; phie_rel .+ Ve]
-        yt_new = [yt[1:mesh_np.nlen + mesh_pp.nlen + mesh_el.nlen,1]; phi_new]
+        yt_new =  deepcopy(yt)
+        yt_new[length(yt) - length(phi_new) + 1 : end,1] = phi_new
+        # Vp += phis_p_rel[end]
+        # Ve += phie_rel[1]
         variables = P2D_variables(case, yt_new, t)
         j_n_gs_new = variables["negative electrode interfacial current at Gauss point"]
         j_p_gs_new = variables["positive electrode interfacial current at Gauss point"]
@@ -214,14 +219,14 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     ce_n = variables["electrolyte lithium concentration in negative electrode"]
     ce_p = variables["electrolyte lithium concentration in positive electrode"]
     ce_sp = variables["electrolyte lithium concentration in separator"]
-    u_n = param.NE.U(csn_surf)
-    u_p = param.PE.U(csp_surf)
+    u_n = param.NE.U(csn_surf) .+ (T .- case.param.cell.T0) .* param.NE.dUdT(csn_surf)
+    u_p = param.PE.U(csp_surf) .+ (T .- case.param.cell.T0) .* param.PE.dUdT(csp_surf)
     eta_p = phis_p - phie_p - u_p
     eta_n = phis_n - phie_n - u_n
-    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(csn_surf .* (1.0 .- csn_surf) .* ce_n) .^ 0.5
-    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(csp_surf .* (1.0 .- csp_surf) .* ce_p) .^ 0.5
-    j_n = j0_n .* sinh.(0.5 .* eta_n / T) * 2.0
-    j_p = j0_p .* sinh.(0.5 .* eta_p / T) * 2.0
+    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* (csn_surf .* abs.(1.0 .- csn_surf) .* ce_n) .^ 0.5
+    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* (csp_surf .* abs.(1.0 .- csp_surf) .* ce_p) .^ 0.5
+    j_n = j0_n .* sinh.(0.5 .* eta_n ./ T) * 2.0
+    j_p = j0_p .* sinh.(0.5 .* eta_p ./ T) * 2.0
 
     csn_surf_gs = sum(gs_ne.Ni .* csn_surf[element_ne[gs_ne.ele,:]], dims=2)
     csp_surf_gs = sum(gs_pe.Ni .* csp_surf[element_pe[gs_pe.ele,:]], dims=2)
@@ -232,14 +237,14 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     ce_n_gs = sum(gs_ne.Ni .* ce_n[element_ne[gs_ne.ele,:]], dims=2)
     ce_p_gs = sum(gs_pe.Ni .* ce_p[element_pe[gs_pe.ele,:]], dims=2)
     ce_sp_gs = sum(gs_sp.Ni .* ce_sp[element_sp[gs_sp.ele, :]], dims = 2)
-    u_n_gs = param.NE.U(csn_surf_gs)
-    u_p_gs = param.PE.U(csp_surf_gs)
+    u_n_gs = param.NE.U(csn_surf_gs) + (T .- case.param.cell.T0) .* param.NE.dUdT(csn_surf_gs)
+    u_p_gs = param.PE.U(csp_surf_gs) + (T .- case.param.cell.T0) .* param.PE.dUdT(csp_surf_gs)
     eta_p_gs = phis_p_gs - phie_p_gs - u_p_gs
     eta_n_gs = phis_n_gs - phie_n_gs - u_n_gs
     j0_n_gs =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(csn_surf_gs .* (1.0 .- csn_surf_gs) .* ce_n_gs) .^ 0.5
     j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(csp_surf_gs .* (1.0 .- csp_surf_gs) .* ce_p_gs) .^ 0.5
-    j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs / T) * 2.0
-    j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs / T) * 2.0
+    j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs ./ T) * 2.0
+    j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs ./ T) * 2.0
 
     variables["negative electrode interfacial current density"] = j_n
     variables["positive electrode interfacial current density"] = j_p
@@ -259,6 +264,8 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     variables["positive electrode overpotential at Gauss point"] = eta_p_gs
     variables["electrolyte lithium concentration at negative electrode Gauss point"] = ce_n_gs
     variables["electrolyte lithium concentration at positive electrode Gauss point"] = ce_p_gs
+    variables["negative particle surface lithium concentration at Gauss point"] = csn_surf_gs
+    variables["positive particle surface lithium concentration at Gauss point"] = csp_surf_gs
     variables["electrolyte lithium concentration at separator Gauss point"] = ce_sp_gs
     variables["time"] = t
     variables["temperature"] = T

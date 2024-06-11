@@ -23,4 +23,5 @@ using Parameters
     solveType::String  = "Crank-Nicolson" # forward, backward or Crank-Nicolson
     outputType::String  = "auto" # auto or manual
     jacobi::String = "constant" # constant or update
+    thermalmodel::String  = "none" # none, lumped or full (not implemented)
 end

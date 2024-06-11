@@ -1,3 +1,4 @@
+# time [s], voltage [V],electrolyte concentration [mol/m^3] at x = 0, xn, xp, 1 (check later)
 0,4.036,1000,1000,1000,1000
 10,3.9816,1173.1,1017,973.13,860.69
 20,3.9633,1326.1,1007.7,945.88,762.83
