@@ -79,7 +79,9 @@ end
 function Variable_update!(variables_hist::Dict{String, Union{Array{Float64},Float64}}, variables::Dict{String, Union{Array{Float64},Float64}}, v::Int64)
     var_list = collect(keys(variables))
     for i in var_list
-        variables_hist[i][:,v] = collect(variables[i])
+        if haskey(variables_hist, i)
+            variables_hist[i][:,v] = collect(variables[i])
+        end
     end
     return variables_hist
 end
