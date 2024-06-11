@@ -12,7 +12,7 @@ function Solve(case::Case)
         theta = 0.5 
     elseif case.opt.solveType == "forward"
         theta = 0 
-    elseif "backward"
+    elseif case.opt.solveType == "backward"
         theta = 1 
     else
         error( "Error: $(opt.solve_type) difference scheme has not been implemented!\n ") 

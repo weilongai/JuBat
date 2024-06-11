@@ -114,28 +114,28 @@ function phie_fit(x::Union{Array{Float64},Float64}, Li::Array{Float64}, ki::Arra
     kn, ks, kp = ki
     L = Ln + Ls + Lp
     phie = zeros(length(x))
-    # # one-stage fitting - quad function
-    for i in eachindex(x)
-        if x[i] <= Ln
-            phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
-        elseif x[i] < Ln + Ls
-            phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
-        else
-            phie[i]= -0.5 * kp / Lp * (x[i] - L)^2 + kp * Lp/2 + ks * Ls/2 + phie0
-        end
-    end
-
-    # # one-stage fitting - sin function
-    # pi = 3.1415
+    # # # one-stage fitting - quad function
     # for i in eachindex(x)
     #     if x[i] <= Ln
-    #         phie[i]= - 2 * kn * Ln / pi * cos(x[i] * pi / 2 / Ln) - ks * Ls/2 + phie0
+    #         phie[i]= 0.5 * kn / Ln * x[i]^2 - kn * Ln/2 - ks * Ls/2 + phie0
     #     elseif x[i] < Ln + Ls
     #         phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
     #     else
-    #         phie[i]= 2 * kp * Lp /pi * sin((x[i] - Ln - Ls) / Lp * pi / 2) + ks * Ls/2 + phie0
+    #         phie[i]= -0.5 * kp / Lp * (x[i] - L)^2 + kp * Lp/2 + ks * Ls/2 + phie0
     #     end
     # end
+
+    # one-stage fitting - sin function
+    pi = 3.1415
+    for i in eachindex(x)
+        if x[i] <= Ln
+            phie[i]= - 2 * kn * Ln / pi * cos(x[i] * pi / 2 / Ln) - ks * Ls/2 + phie0
+        elseif x[i] < Ln + Ls
+            phie[i]= ks * (x[i] - Ln - Ls/2) + phie0
+        else
+            phie[i]= 2 * kp * Lp /pi * sin((x[i] - Ln - Ls) / Lp * pi / 2) + ks * Ls/2 + phie0
+        end
+    end
 
     # # two-stage fitting
     # for i in eachindex(x)
