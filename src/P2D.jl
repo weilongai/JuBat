@@ -130,6 +130,7 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     u_n_gs = variables["negative electrode open circuit potential at Gauss point"]
     u_p_gs = variables["positive electrode open circuit potential at Gauss point"] 
     T = variables["temperature"]
+    
     gs_ne = mesh_ne.gs
     gs_pe = mesh_pe.gs
     element_ne = mesh_ne.element

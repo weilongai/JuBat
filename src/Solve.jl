@@ -12,7 +12,7 @@ function Solve(case::Case)
         theta = 0.5 
     elseif case.opt.solveType == "forward"
         theta = 0 
-    elseif "backward"
+    elseif case.opt.solveType == "backward"
         theta = 1 
     else
         error( "Error: $(opt.solve_type) difference scheme has not been implemented!\n ") 
@@ -42,7 +42,7 @@ function Solve(case::Case)
     print( "start to solve the problem \n")
 
     # run the model
-    while t <= t_end
+    while t <= t_end && variables["cell voltage"] <= case.param.cell.v_h && variables["cell voltage"] >= case.param.cell.v_l
         M_new, K_new, F_new, variables, y_phi = CallModel(case, y_old, t, jacobi="update") 
         Mt = M_new - theta * K_new * dt 
         Kt = (1 - theta) * K_old * dt + M_new 
@@ -108,7 +108,9 @@ function CallModel(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M, K, F, variables = SPMe(case, yt, t, jacobi=jacobi)
         y_phi = Float64[]    
     elseif case.opt.model == "P2D"
-        M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)     
+        M, K, F, variables, y_phi = P2D(case, yt, t, jacobi=jacobi)   
+    elseif case.opt.model == "sP2D"
+        M, K, F, variables, y_phi = sP2D(case, yt, t, jacobi=jacobi)   
     else
         error( "Error: $(case.opt.model) model has not been implemented!\n ")
     end

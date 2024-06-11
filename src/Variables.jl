@@ -4,7 +4,7 @@ function StandardVariables(case::Case, num::Int64)
     if case.opt.model == "SPM" || case.opt.model == "SPMe"
         Nn = 1
         Np = 1
-    elseif case.opt.model == "P2D"
+    elseif case.opt.model == "P2D" || case.opt.model == "sP2D"
         Nn = case.mesh["negative electrode"].nlen
         Np = case.mesh["positive electrode"].nlen
     end
@@ -33,7 +33,7 @@ function StandardVariables(case::Case, num::Int64)
         "cell current" => zeros(Float64, 1, num),      
     )
     # additional variables for SPMe and P2D
-    if case.opt.model == "SPMe" || case.opt.model == "P2D"
+    if case.opt.model == "SPMe" || case.opt.model == "P2D" || case.opt.model == "sP2D"
         Ne = case.mesh["electrolyte"].nlen
         Ne_n = case.mesh["negative electrode"].nlen
         Ne_p = case.mesh["positive electrode"].nlen
@@ -50,7 +50,7 @@ function StandardVariables(case::Case, num::Int64)
         variables["electrolyte lithium concentration at separator Gauss point"] = zeros(Float64, Ne_spgs, num)
     end
     # extra variables for P2D
-    if case.opt.model == "P2D"
+    if case.opt.model == "P2D" || case.opt.model == "sP2D"
         variables["negative electrode potential"] = zeros(Float64, Nn, num)
         variables["positive electrode potential"] = zeros(Float64, Np, num)
         variables["electrolyte potential"] = zeros(Float64, Ne, num)
@@ -81,7 +81,9 @@ end
 function Variable_update!(variables_hist::Dict{String, Union{Array{Float64},Float64}}, variables::Dict{String, Union{Array{Float64},Float64}}, v::Int64)
     var_list = collect(keys(variables))
     for i in var_list
-        variables_hist[i][:,v] = collect(variables[i])
+        if haskey(variables_hist, i)
+            variables_hist[i][:,v] = collect(variables[i])
+        end
     end
     return variables_hist
 end

@@ -38,7 +38,7 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
             index["electrolyte lithium concentration in separator"] = v0 + mesh_el_ne.nlen .+ collect(1: mesh_el_sp.nlen)
             v0 += mesh_el.nlen
         end
-    elseif opt.model == "P2D"
+    elseif opt.model == "P2D" || opt.model == "sP2D"
         # negative particle
         mesh_np = SetMesh([0, param.NE.rs], opt.Nrn, opt.meshType, opt.gsorder)
         # positive particle

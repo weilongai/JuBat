@@ -19,8 +19,9 @@ include("Tools.jl")
 include("Thermal.jl")
 include("Variables.jl")
 include("Initialisation.jl")
+include("sP2D.jl")
+include("Citation.jl")
 
-include("solveODE.jl") 
 
 export Assemble, ElectrodeDiffusion, ElectrolyteDiffusion, Postprocessing, SetCase, SetMesh, ChooseCell
 export Mesh1D, GetGS, LagrangeBasis, GSweight, ShapeFunction1D, NormaliseParam, StandardVariables
