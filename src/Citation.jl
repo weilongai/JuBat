@@ -5,7 +5,7 @@ function Citation(model=[])
         "ai2023" => "W. Ai, Y. Liu, Improving the convergence rate of Newman’s battery model using 2nd order finite element method, J. Energy Storage. 67 (2023) 107512. https://doi.org/10.1016/j.est.2023.107512",
         "ai2024b" => "W. Ai, Y. Liu, sP2D: Simplified pseudo 2D battery model by piecewise sinusoidal/quadratic functions of potential curves, J. Energy Storage. 86 (2024) 111386. https://doi.org/10.1016/j.est.2024.111386",
     ) 
-    v = ["ai2024b"]
+    v = ["ai2024a"]
     for i in model
         # add citation here
         if i == "sP2D"

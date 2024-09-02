@@ -7,6 +7,10 @@ Jubat is a compact, readable and fast framework for battery modelling and will b
 
 Thermal model and degradation models are under development.
 
+CONTRIBUTE:
+All contributions are welcome. Please add all essential (and least) functions and one example to demonstrate how to use them. One can add papers to the Citation.jl, so that the contribution can be acknowledged.
+
+
 Reference: 
 
 [1]	W. Ai, Y. Liu, JuBat: A Julia-based framework for battery modelling using finite element method, SoftwareX. 27 (2024) 101760. https://doi.org/10.1016/j.softx.2024.101760
