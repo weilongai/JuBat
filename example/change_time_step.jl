@@ -19,8 +19,9 @@ result1 = JuBat.Solve(case1)
 t3 = time()
 
 # Plot
-plot(result["time [s]"], result["cell voltage [V]"], label="constant dt", xlabel="time [s]", ylabel="cell voltage [V]",lw=1)
-plot!(result1["time [s]"], result1["cell voltage [V]"], label="auto dt", linestyle=:dot, lw=1) # shape=:circle
+plot(result["time [s]"], result["cell voltage [V]"], label="constant dt", xlabel="time [s]", ylabel="cell voltage [V]",lw=1.5)
+plot!(result1["time [s]"], result1["cell voltage [V]"], label="auto dt", linestyle=:dot, lw=2) # shape=:circle
 print("running time: constant dt=$(t2-t1) s; auto dt=$(t3-t2) s; \n")
 savefig("change_dt.pdf")
+JuBat.Citation()
 # CSV.write("result2.csv", result2, bufsize=10^9)

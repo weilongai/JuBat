@@ -22,6 +22,6 @@ result = CSV.read(path * "pybamm_drive_P2D_UDDS.csv", DataFrame, header = 1)
 pybamm_drive = Matrix(result)
 plot!(pybamm_drive[:,1], pybamm_drive[:,3],label="PyBaMM", linestyle=:dot, linecolor=:red, lw=2, title="Drive cycle UDDS", legend=(0.8,0.95))
 savefig("drive_UDDS_V.pdf")
-
+JuBat.Citation()
 # plot(times, current,xlabel="time [s]", ylabel="current [A]", label="Current", fontsize=12, size=(400,300), title="Drive cycle UDDS")
 # savefig("drive_UDDS_I.pdf")

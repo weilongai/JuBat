@@ -24,4 +24,4 @@ for j =1:3
     plot!(result2["time [s]"], result2["cell voltage [V]"], label="P2D", linestyle =:dot, linecolor =:black, lw=2.5)
 end
 savefig("sP2D_validation.pdf")
-JuBat.Citation(["sP2D"])
+JuBat.Citation(["ai2024b"])

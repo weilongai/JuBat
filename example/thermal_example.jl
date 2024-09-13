@@ -31,6 +31,6 @@ for i in eachindex(Crates)
     plot!(pV, result1[:,1]/3600*Crates[i]*5, result1[:,3],label=string(Crates[i]) * "C (PyBaMM)", linestyle =:dot, linecolor=colors[i], lw=2)
     plot!(pT, result1[:,1]/3600*Crates[i]*5, result1[:,4],label=string(Crates[i]) * "C (PyBaMM)", linestyle =:dot, linecolor=colors[i], lw=2)
 end
-
+JuBat.Citation()
 savefig(pV, "thermal example-V.pdf")
 savefig(pT, "thermal example-T.pdf")

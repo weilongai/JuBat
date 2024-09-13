@@ -77,7 +77,7 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
         index["temperature"] = [v0 + 1]
         v0 += 1
     end
-    if opt.model == "P2D"
+    if opt.model == "P2D" || opt.model == "sP2D"
         index["negative electrode potential"] = v0 .+ collect(1:mesh_el_ne.nlen)
         index["positive electrode potential"] = v0 .+ mesh_el_ne.nlen .+ collect(1:mesh_el_pe.nlen)
         v0 += mesh_el_ne.nlen + mesh_el_pe.nlen
@@ -85,6 +85,13 @@ function SetCase(param_dim::Params, opt::Option, y0::Array=[])
         index["electrolyte potential in negative electrode"] =  v0 .+ collect(1:mesh_el_ne.nlen)
         index["electrolyte potential in positive electrode"] =  v0 .+ mesh_el.nlen .- collect(mesh_el_pe.nlen - 1:-1:0)
         index["electrolyte potential in separator"] =  v0 + mesh_el_ne.nlen - 1 .+ collect(1: mesh_el_sp.nlen)
+    end
+    # add citations
+    if opt.model == "sP2D"
+        opt.cite = vcat(opt.cite, "ai2024b")
+    end
+    if opt.meshType == "L3"
+        opt.cite = vcat(opt.cite, "ai2023")
     end
     case = Case(param_dim, param, opt, mesh, index)
     return case

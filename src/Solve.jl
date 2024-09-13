@@ -42,7 +42,7 @@ function Solve(case::Case)
     print( "start to solve the problem \n")
 
     # run the model
-    while t <= t_end && variables["cell voltage"] <= case.param.cell.v_h && variables["cell voltage"] >= case.param.cell.v_l
+    while t <= t_end
         M_new, K_new, F_new, variables, y_phi = CallModel(case, y_old, t, jacobi="update") 
         Mt = M_new - theta * K_new * dt 
         Kt = (1 - theta) * K_old * dt + M_new 
@@ -90,7 +90,7 @@ function Solve(case::Case)
             F_old = deepcopy(F_new)
             t += dt 
         end
-        if variables["cell voltage"] * case.param.scale.phi < case.param.cell.v_l || variables["cell voltage"] * case.param.scale.phi > case.param.cell.v_h
+        if variables["cell voltage"] < case.param.cell.v_l || variables["cell voltage"] > case.param.cell.v_h
             break
         end
     end

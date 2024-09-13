@@ -296,8 +296,8 @@ function NormaliseParam(param_dim::Params)
     param.cell.T0 = param_dim.cell.T0 / param.scale.T_ref 
     param.cell.area = param_dim.cell.area * param.scale.phi * param.scale.I_typ / param_dim.cell.capacity
     param.cell.volume = param_dim.cell.volume * param.scale.phi / param.scale.L * param.scale.I_typ / param_dim.cell.capacity
-    param.cell.v_h = param.cell.v_h / param.scale.phi
-    param.cell.v_l = param.cell.v_l / param.scale.phi
+    param.cell.v_h = param_dim.cell.v_h / param.scale.phi
+    param.cell.v_l = param_dim.cell.v_l / param.scale.phi
 
     return param
 end

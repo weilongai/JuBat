@@ -24,4 +24,5 @@ using Parameters
     outputType::String  = "auto" # auto or manual
     jacobi::String = "constant" # constant or update
     thermalmodel::String  = "none" # none, lumped or full (not implemented)
+    cite::Array{String} = []
 end
