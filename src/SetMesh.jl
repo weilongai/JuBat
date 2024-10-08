@@ -225,7 +225,7 @@ function GetGS(element::Array{Int64}, node::Array{Float64}, order::Int64, type::
     count0 = 0
     for e = 1:size(element, 1)
         sctr = element[e, points]
-        for i = 1:size(w, 1)
+        for i in eachindex(w)
             pt = q[i, :]
             N, dNdxi = LagrangeBasis(type, dimen, pt)
             J0 = dNdxi * node[sctr, 1:dimen]
