@@ -1,7 +1,7 @@
 function SPMe(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     variables = SPMe_variables(case, yt, t)
     if case.opt.mechanicalmodel == "full"
-        variables = Mechanicaloutput(case,variables)
+        variables = Mechanical(case,variables)
         theta_Mn = variables["negative particle stress coupling diffusion coefficient"][1]
         theta_Mp = variables["positive particle stress coupling diffusion coefficient"][1]
         else

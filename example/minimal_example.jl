@@ -1,6 +1,6 @@
 using Plots, CSV, DataFrames
 include("../src/JuBat.jl") 
-param_dim = JuBat.ChooseCell("LG M50")
+param_dim = JuBat.ChooseCell("Enertech")
 opt = JuBat.Option()
 Crate = 1
 i= 5*Crate

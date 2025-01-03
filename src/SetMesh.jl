@@ -1,3 +1,23 @@
+mutable struct GaussPoint
+    x::Array{Float64}   # physical coordinates
+    xi::Array{Float64}  # local coordinates
+    weight::Vector{Float64}
+    detJ::Vector{Float64}
+    ele::Vector{Int64}  # element information
+    Ni::Array{Float64}  # shape functions
+    dNidx::Array{Float64}   # derivatives of shape functions
+    order::Int64    # the order of Gauss quadrature
+end
+
+mutable struct Mesh
+    type::String
+    dimension::Int64
+    node::Array{Float64}
+    nlen::Int64 # the length of nodes
+    element::Array{Int64}
+    gs::GaussPoint # Gauss points
+end
+
 function SetMesh(domain::Any, num::Any, type::String, gsorder::Int64=4)
 """
     A function to set up mesh
