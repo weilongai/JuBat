@@ -21,6 +21,7 @@ include("Variables.jl")
 include("Initialisation.jl")
 include("sP2D.jl")
 include("Citation.jl")
+include("Mechanical.jl")
 
 
 export Assemble, ElectrodeDiffusion, ElectrolyteDiffusion, Postprocessing, SetCase, SetMesh, ChooseCell

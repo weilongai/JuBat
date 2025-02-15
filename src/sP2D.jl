@@ -1,6 +1,16 @@
 function sP2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     variables = sP2D_variables(case, yt, t)
     param = case.param
+    if case.opt.mechanicalmodel == "full"
+        variables = Mechanicaloutput(case,variables)
+        theta_Mn = variables["negative particle stress coupling diffusion coefficient"][1]
+        theta_Mp = variables["positive particle stress coupling diffusion coefficient"][1]
+        else
+        theta_Mn = 0.0
+        theta_Mp = 0.0
+    end
+    csn_gs = variables["negative particle concentration at gauss point"]
+    csp_gs = variables["positive particle concentration at gauss point"]
     mesh_np = case.mesh["negative particle"]
     mesh_pp = case.mesh["positive particle"]
     mesh_el = case.mesh["electrolyte"]
@@ -10,8 +20,8 @@ function sP2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M_pe_d = param.PE.M_d
         K_pe_d = param.PE.K_d
     else
-        M_ne_d, K_ne_d = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
-        M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)
+        M_ne_d, K_ne_d = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen,csn_gs, theta_Mn)
+        M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen,csp_gs, theta_Mp)
         M_ne_d = M_ne_d .* param.scale.ts_n / param_dim.scale.t0
         M_pe_d = M_pe_d .* param.scale.ts_p / param_dim.scale.t0   
     end

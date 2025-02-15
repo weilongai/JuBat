@@ -1,5 +1,15 @@
 function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     variables = P2D_variables(case, yt, t)
+    if case.opt.mechanicalmodel == "full"
+        variables = Mechanicaloutput(case,variables)
+        theta_Mn = variables["negative particle stress coupling diffusion coefficient"][1]
+        theta_Mp = variables["positive particle stress coupling diffusion coefficient"][1]
+        else
+        theta_Mn = 0.0
+        theta_Mp = 0.0
+    end
+    csn_gs = variables["negative particle concentration at gauss point"]
+    csp_gs = variables["positive particle concentration at gauss point"]
     param = case.param
     mesh_np = case.mesh["negative particle"]
     mesh_pp = case.mesh["positive particle"]
@@ -16,8 +26,8 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M_pe_p = param.PE.M_p
         K_pe_p = param.PE.K_p
     else
-        M_ne_d, K_ne_d = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
-        M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)
+        M_ne_d, K_ne_d = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen, csn_gs, theta_Mn)
+        M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen, csp_gs, theta_Mp)
         M_ne_p, K_ne_p = ElectrodePotential(param.NE, mesh_ne, mesh_ne.nlen)
         M_pe_p, K_pe_p = ElectrodePotential(param.PE, mesh_pe, mesh_pe.nlen) 
         M_ne_d = M_ne_d .* param.scale.ts_n / param_dim.scale.t0
@@ -137,6 +147,8 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
     element_pe = mesh_pe.element
     Vp0 = u_p_gs[end] # this is reference value and will be corrected by iterations
     # Ve = 0
+    stress_theta_n_surf_gs = variables["negative particle surface tangential stress at gauss point"]
+    stress_theta_p_surf_gs = variables["positive particle surface tangential stress at gauss point"]
     for i = 1:iter_max
     # # relative potential        
         j_n_gs_old = variables["negative electrode interfacial current at Gauss point"]
@@ -160,8 +172,8 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         phis_p_gs_rel = sum(gs_pe.Ni .* phis_p_rel[element_pe[gs_pe.ele,:]], dims=2)
         phie_n_gs_rel = sum(gs_ne.Ni .* phie_n_rel[element_ne[gs_ne.ele,:]], dims=2)
         phie_p_gs_rel = sum(gs_pe.Ni .* phie_p_rel[element_pe[gs_pe.ele,:]], dims=2)
-        eta_n_gs_rel = phis_n_gs_rel - phie_n_gs_rel - u_n_gs
-        eta_p_gs_rel = phis_p_gs_rel - phie_p_gs_rel - u_p_gs
+        eta_n_gs_rel = phis_n_gs_rel - phie_n_gs_rel - u_n_gs - (2/3) * stress_theta_n_surf_gs * case.param.NE.Omega 
+        eta_p_gs_rel = phis_p_gs_rel - phie_p_gs_rel - u_p_gs - (2/3) * stress_theta_p_surf_gs * case.param.PE.Omega 
     # # reference potential  
         I_np = IntV(case.param.NE.as .* j0_n_gs .* exp.(0.5 * eta_n_gs_rel ./ T), mesh_ne)
         I_nn = IntV(case.param.NE.as .* j0_n_gs .* exp.(-0.5 * eta_n_gs_rel ./ T), mesh_ne)
@@ -177,6 +189,9 @@ function P2D_potentials(case::Case, yt::Array{Float64}, t::Float64, K_pot::Spars
         # Vp += phis_p_rel[end]
         # Ve += phie_rel[1]
         variables = P2D_variables(case, yt_new, t)
+        if case.opt.mechanicalmodel == "full"
+            variables = Mechanicaloutput(case,variables)
+        end
         j_n_gs_new = variables["negative electrode interfacial current at Gauss point"]
         j_p_gs_new = variables["positive electrode interfacial current at Gauss point"]
         j_gs_new = [j_n_gs_new; j_p_gs_new]
@@ -209,7 +224,6 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     element_ne = case.mesh["negative electrode"].element
     element_pe = case.mesh["positive electrode"].element
     element_sp = case.mesh["separator"].element
-
     csn_surf = variables["negative particle surface lithium concentration"]
     csp_surf = variables["positive particle surface lithium concentration"]
     phis_n = variables["negative electrode potential"]
@@ -221,13 +235,6 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     ce_sp = variables["electrolyte lithium concentration in separator"]
     u_n = param.NE.U(csn_surf) .+ (T .- case.param.cell.T0) .* param.NE.dUdT(csn_surf)
     u_p = param.PE.U(csp_surf) .+ (T .- case.param.cell.T0) .* param.PE.dUdT(csp_surf)
-    eta_p = phis_p - phie_p - u_p
-    eta_n = phis_n - phie_n - u_n
-    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* (csn_surf .* abs.(1.0 .- csn_surf) .* ce_n) .^ 0.5
-    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* (csp_surf .* abs.(1.0 .- csp_surf) .* ce_p) .^ 0.5
-    j_n = j0_n .* sinh.(0.5 .* eta_n ./ T) * 2.0
-    j_p = j0_p .* sinh.(0.5 .* eta_p ./ T) * 2.0
-
     csn_surf_gs = sum(gs_ne.Ni .* csn_surf[element_ne[gs_ne.ele,:]], dims=2)
     csp_surf_gs = sum(gs_pe.Ni .* csp_surf[element_pe[gs_pe.ele,:]], dims=2)
     phis_n_gs = sum(gs_ne.Ni .* phis_n[element_ne[gs_ne.ele,:]], dims=2)
@@ -239,13 +246,18 @@ function P2D_variables(case::Case, yt::Array{Float64}, t::Float64)
     ce_sp_gs = sum(gs_sp.Ni .* ce_sp[element_sp[gs_sp.ele, :]], dims = 2)
     u_n_gs = param.NE.U(csn_surf_gs) + (T .- case.param.cell.T0) .* param.NE.dUdT(csn_surf_gs)
     u_p_gs = param.PE.U(csp_surf_gs) + (T .- case.param.cell.T0) .* param.PE.dUdT(csp_surf_gs)
-    eta_p_gs = phis_p_gs - phie_p_gs - u_p_gs
-    eta_n_gs = phis_n_gs - phie_n_gs - u_n_gs
+    eta_p = phis_p - phie_p - u_p 
+    eta_n = phis_n - phie_n - u_n  
+    j0_n =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* (csn_surf .* abs.(1.0 .- csn_surf) .* ce_n) .^ 0.5
+    j0_p =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* (csp_surf .* abs.(1.0 .- csp_surf) .* ce_p) .^ 0.5
+    j_n = j0_n .* sinh.(0.5 .* eta_n ./ T) * 2.0
+    j_p = j0_p .* sinh.(0.5 .* eta_p ./ T) * 2.0
     j0_n_gs =  param.NE.k * Arrhenius(param.NE.Eac_k, T) .* abs.(csn_surf_gs .* (1.0 .- csn_surf_gs) .* ce_n_gs) .^ 0.5
     j0_p_gs =  param.PE.k * Arrhenius(param.PE.Eac_k, T) .* abs.(csp_surf_gs .* (1.0 .- csp_surf_gs) .* ce_p_gs) .^ 0.5
+    eta_p_gs = phis_p_gs - phie_p_gs - u_p_gs 
+    eta_n_gs = phis_n_gs - phie_n_gs - u_n_gs 
     j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs ./ T) * 2.0
     j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs ./ T) * 2.0
-
     variables["negative electrode interfacial current density"] = j_n
     variables["positive electrode interfacial current density"] = j_p
     variables["negative electrode exchange current density"] = j0_n

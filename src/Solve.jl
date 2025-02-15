@@ -43,7 +43,7 @@ function Solve(case::Case)
 
     # run the model
     while t <= t_end
-        M_new, K_new, F_new, variables, y_phi = CallModel(case, y_old, t, jacobi="update") 
+        M_new, K_new, F_new, variables, y_phi = CallModel(case, y_old, t, jacobi="update")    
         Mt = M_new - theta * K_new * dt 
         Kt = (1 - theta) * K_old * dt + M_new 
         Ft = theta * F_new * dt + (1 - theta) * F_old * dt 

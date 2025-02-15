@@ -4,9 +4,13 @@ function StandardVariables(case::Case, num::Int64)
     if case.opt.model == "SPM" || case.opt.model == "SPMe"
         Nn = 1
         Np = 1
+        Ne_ngs = case.opt.Nn * case.opt.gsorder
+        Ne_pgs = case.opt.Np * case.opt.gsorder
     elseif case.opt.model == "P2D" || case.opt.model == "sP2D"
         Nn = case.mesh["negative electrode"].nlen
         Np = case.mesh["positive electrode"].nlen
+        Ne_ngs = case.opt.Nn * case.opt.gsorder
+        Ne_pgs = case.opt.Np * case.opt.gsorder
     end
 
     variables = Dict{String, Union{Array{Float64}, Float64}}(
@@ -28,6 +32,18 @@ function StandardVariables(case::Case, num::Int64)
         "positive electrode overpotential" => zeros(Float64, Np, num), 
         "negative electrode open circuit potential" => zeros(Float64, Nn, num),
         "positive electrode open circuit potential" => zeros(Float64, Np, num),
+        "negative particle center radial stress" => zeros(Float64, Nn, num),
+        "positive particle center radial stress" => zeros(Float64, Np, num),
+        "negative particle surface tangential stress" => zeros(Float64, Nn, num),
+        "positive particle surface tangential stress" => zeros(Float64, Np, num),
+        "negative particle surface displacement" => zeros(Float64, Nn, num),
+        "positive particle surface displacement" => zeros(Float64, Np, num),
+        "negative particle concentration at gauss point" => zeros(Float64,  Nn* case.opt.Nrn* case.opt.gsorder, num),
+        "positive particle concentration at gauss point" => zeros(Float64,  Np* case.opt.Nrp* case.opt.gsorder, num),
+        "negative particle surface tangential stress at gauss point" => zeros(Float64, Ne_ngs, num),
+        "positive particle surface tangential stress at gauss point" => zeros(Float64, Ne_pgs, num),
+        "negative particle stress coupling diffusion coefficient" => zeros(Float64, Nn, num),
+        "positive particle stress coupling diffusion coefficient" => zeros(Float64, Np, num),
         "cell voltage" => zeros(Float64, 1, num),
         "time" => zeros(Float64, 1, num),      
         "cell current" => zeros(Float64, 1, num),      

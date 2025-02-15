@@ -55,6 +55,9 @@
     Eac_D::Float64 = 0
     Eac_k::Float64 = 0
     alpha::Float64 = 0
+    Omega::Float64 = 0
+    nu::Float64 = 0
+    E::Float64 = 0
     U::Function = x-> 0.0
     dUdT::Function = x-> 0.0
     M_d::SparseArrays.SparseMatrixCSC{Float64, Int64} = spzeros(0,0)
@@ -151,6 +154,8 @@ end
     k_n::Float64 = 0
     I_typ::Float64 = 0
     R_cell::Float64 = 0
+    E_n::Float64 = 0
+    E_p::Float64 = 0
 end
 
 @with_kw mutable struct Params
@@ -178,6 +183,8 @@ function ChooseCell(CellType::String="LG M50")
         include("../src/parameters/LGM50.jl") # pathof(JuBat)
     elseif CellType == "Northrop"
         include("../src/parameters/Northrop.jl") # pathof(JuBat)
+    elseif CellType == "Enertech"
+        include("../src/parameters/Enertech.jl") # pathof(JuBat)
     end
     param_dim.PE.eps_s = 1 - param_dim.PE.eps - param_dim.PE.eps_fi
     param_dim.NE.eps_s = 1 - param_dim.NE.eps - param_dim.NE.eps_fi
@@ -215,6 +222,8 @@ function ChooseCell(CellType::String="LG M50")
     param_dim.scale.cp_max = param_dim.PE.cs_max
     param_dim.scale.cn_max = param_dim.NE.cs_max
     param_dim.scale.ce = param_dim.EL.ce0
+    param_dim.scale.E_n = param_dim.NE.cs_max * param_dim.scale.R * param_dim.scale.T_ref
+    param_dim.scale.E_p = param_dim.PE.cs_max * param_dim.scale.R * param_dim.scale.T_ref
     param_dim.scale.k_p = param_dim.scale.j / param_dim.PE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.k_n = param_dim.scale.j / param_dim.NE.cs_max / sqrt(param_dim.EL.ce0)
     param_dim.scale.R_cell = param_dim.scale.phi / param_dim.scale.I_typ
@@ -239,6 +248,9 @@ function NormaliseParam(param_dim::Params)
     param.PE.eps = param_dim.PE.eps
     param.PE.eps_fi = param_dim.PE.eps_fi
     param.PE.brugg = param_dim.PE.brugg
+    param.PE.Omega = param_dim.PE.Omega * param_dim.PE.cs_max
+    param.PE.nu = param_dim.PE.nu
+    param.PE.E = param_dim.PE.E / param_dim.scale.E_p
     param.PE.k = param_dim.PE.k / param.scale.k_p
     param.PE.rs = param_dim.PE.rs / param.scale.r0
     param.PE.sig = param_dim.PE.sig / param.scale.sig
@@ -257,6 +269,9 @@ function NormaliseParam(param_dim::Params)
     param.NE.eps = param_dim.NE.eps
     param.NE.eps_fi = param_dim.NE.eps_fi
     param.NE.brugg = param_dim.NE.brugg
+    param.NE.Omega = param_dim.NE.Omega * param_dim.NE.cs_max
+    param.NE.nu = param_dim.NE.nu
+    param.NE.E = param_dim.NE.E / param_dim.scale.E_n
     param.NE.k = param_dim.NE.k / param.scale.k_n
     param.NE.rs = param_dim.NE.rs / param.scale.r0
     param.NE.sig = param_dim.NE.sig / param.scale.sig

@@ -1,5 +1,15 @@
 function SPM(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
     variables = SPM_variables(case, yt, t)
+    if case.opt.mechanicalmodel == "full"
+        variables = Mechanicaloutput(case,variables)
+        theta_Mn = variables["negative particle stress coupling diffusion coefficient"][1]
+        theta_Mp = variables["positive particle stress coupling diffusion coefficient"][1]
+        else
+        theta_Mn = 0.0
+        theta_Mp = 0.0
+    end
+    csn_gs = variables["negative particle concentration at gauss point"]
+    csp_gs = variables["positive particle concentration at gauss point"]
     if jacobi == "constant" && param.NE.M_d != [] # no need to update M and K
         M_np = param.NE.M_d
         K_np = param.NE.K_d
@@ -9,8 +19,8 @@ function SPM(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         param = case.param
         mesh_np = case.mesh["negative particle"]
         mesh_pp = case.mesh["positive particle"]
-        M_np, K_np = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen)
-        M_pp, K_pp = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen)   
+        M_np, K_np = ElectrodeDiffusion(param.NE, mesh_np, mesh_np.nlen, csn_gs, theta_Mn)
+        M_pp, K_pp = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen, csp_gs, theta_Mp)   
         M_np .*= param.scale.ts_n / param_dim.scale.t0
         M_pp .*= param.scale.ts_p / param_dim.scale.t0
     end
