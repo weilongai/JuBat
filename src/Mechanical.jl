@@ -1,4 +1,4 @@
-function Mechanicaloutput(case::Case, variables::Dict{String, Union{Array{Float64},Float64}})
+function Mechanical(case::Case, variables::Dict{String, Union{Array{Float64},Float64}})
     param = case.param
     if case.opt.model == "SPM" || case.opt.model == "SPMe"
         mesh_n = case.mesh["negative particle"]
@@ -11,9 +11,13 @@ function Mechanicaloutput(case::Case, variables::Dict{String, Union{Array{Float6
         T = variables["temperature"]
         stress_rn_center,stress_theta_n_surf,disp_surf_n,theta_Mn,csn_gs = Calstressdisp(param.NE, mesh_n, c_n, T)
         stress_rp_center,stress_theta_p_surf,disp_surf_p,theta_Mp,csp_gs = Calstressdisp(param.PE, mesh_p, c_p, T)
-        eta_p_new = eta_p - (2/3) * stress_theta_p_surf * param.PE.Omega 
-        eta_n_new = eta_n - (2/3) * stress_theta_n_surf * param.NE.Omega
-        V_cell_new = V_cell  - (2/3) * stress_theta_p_surf * param.PE.Omega + (2/3) * stress_theta_n_surf * param.NE.Omega
+        stress_rn_surf = 0
+        stress_rp_surf = 0
+        hydrostatic_stress_n = (1/3) * (2 * stress_theta_n_surf .+ stress_rn_surf)
+        hydrostatic_stress_p = (1/3) * (2 * stress_theta_p_surf .+ stress_rp_surf)
+        eta_p_new = eta_p - hydrostatic_stress_p * param.PE.Omega 
+        eta_n_new = eta_n - hydrostatic_stress_n * param.NE.Omega
+        V_cell_new = V_cell  - hydrostatic_stress_p * param.PE.Omega + hydrostatic_stress_n * param.NE.Omega
         variables["negative particle center radial stress"] = stress_rn_center
         variables["positive particle center radial stress"] = stress_rp_center
         variables["negative particle surface tangential stress"] = stress_theta_n_surf
@@ -74,14 +78,22 @@ function Mechanicaloutput(case::Case, variables::Dict{String, Union{Array{Float6
             cs = cs_p[(i-1)* mesh.nlen .+ (1:mesh.nlen)]
             stress_rp_center[i],stress_theta_p_surf[i],disp_surf_p[i],theta_Mp[i],csp_gs[(i-1)*n_p_gs+1: i*n_p_gs] = Calstressdisp(param.PE, mesh, cs, T)
         end
-        eta_p_new = eta_p .- (2/3) * stress_theta_p_surf * param.PE.Omega  
-        eta_n_new = eta_n .- (2/3) * stress_theta_n_surf * param.NE.Omega
+        stress_rn_surf = 0
+        stress_rp_surf = 0
+        stress_rn_surf_gs = 0
+        stress_rp_surf_gs = 0
+        hydrostatic_stress_n = (1/3) * (2 * stress_theta_n_surf .+ stress_rn_surf)
+        hydrostatic_stress_p = (1/3) * (2 * stress_theta_p_surf .+ stress_rp_surf)
+        eta_p_new = eta_p .-  hydrostatic_stress_p .* param.PE.Omega  
+        eta_n_new = eta_n .-  hydrostatic_stress_n .* param.NE.Omega
         j_n = j0_n .* sinh.(0.5 .* eta_n_new ./ T) * 2.0
         j_p = j0_p .* sinh.(0.5 .* eta_p_new ./ T) * 2.0
         stress_theta_n_surf_gs =  sum(gs_ne.Ni .* stress_theta_n_surf[element_ne[gs_ne.ele,:]], dims=2)
         stress_theta_p_surf_gs =  sum(gs_pe.Ni .* stress_theta_p_surf[element_pe[gs_ne.ele,:]], dims=2)
-        eta_p_gs_new = eta_p_gs .- (2/3) * stress_theta_p_surf_gs * param.PE.Omega  
-        eta_n_gs_new = eta_n_gs .- (2/3) * stress_theta_n_surf_gs * param.NE.Omega
+        hydrostatic_stress_n_gs = (1/3) * (2 * stress_theta_n_surf_gs .+ stress_rn_surf_gs)
+        hydrostatic_stress_p_gs = (1/3) * (2 * stress_theta_p_surf_gs .+ stress_rp_surf_gs)
+        eta_p_gs_new = eta_p_gs .- hydrostatic_stress_p_gs .* param.PE.Omega  
+        eta_n_gs_new = eta_n_gs .- hydrostatic_stress_n_gs .* param.NE.Omega
         j_n_gs = j0_n_gs .* sinh.(0.5 * eta_n_gs_new ./ T) * 2.0
         j_p_gs = j0_p_gs .* sinh.(0.5 * eta_p_gs_new ./ T) * 2.0
         variables["negative electrode interfacial current density"] = j_n
@@ -129,7 +141,7 @@ function Calstressdisp(electrode::Electrode, mesh::Mesh, cs::Array{Float64}, T::
         cs_surf = cs[end]
         cs_center = cs[1]
         cs_gs =  sum(mesh.gs.Ni .* cs[mesh.element[mesh.gs.ele,:]], dims=2)
-        cs_av = (3 /(4 * π * (rs ^ 3))) * IntV((cs_gs.*( 4* π .*(mesh.gs.x).^2)) , mesh)
+        cs_av = (3 /(4 * pi * (rs .^ 3))) * IntV((cs_gs.*( 4* pi .*(mesh.gs.x).^2)) , mesh)
         stress_r_center = (2 * Omega * E  * (cs_av - cs_center)) ./ (9 * (1 - nu))
         stress_theta_surf = (Omega * E * (cs_av - cs_surf)) ./ (3 * (1 - nu)) 
         disp_surf = (Omega * rs * cs_av) / 3 
