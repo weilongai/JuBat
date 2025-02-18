@@ -4,6 +4,12 @@ function PostProcessing(case::Case, variables::Dict{String, Union{Array{Float64}
     result["cell voltage [V]"]= variables["cell voltage"][1:v] * case.param.scale.phi
     result["cell current [A]"]= variables["cell current"][1:v] * case.param_dim.cell.I1C
     result["temperature [K]"] = variables["temperature"][1:v] * case.param_dim.scale.T_ref
+    result["negative particle center radial stress[Pa]"] = variables["negative particle center radial stress"][:,1:v] * case.param.scale.E_n
+    result["positive particle center radial stress[Pa]"] = variables["positive particle center radial stress"][:,1:v] * case.param.scale.E_p
+    result["negative particle surface tangential stress[Pa]"] = variables["negative particle surface tangential stress"][:,1:v] * case.param.scale.E_n
+    result["positive particle surface tangential stress[Pa]"] = variables["positive particle surface tangential stress"][:,1:v] * case.param.scale.E_p
+    result["negative particle surface displacement[m]"] = variables["negative particle surface displacement"][:,1:v] * case.param.scale.r0
+    result["positive particle surface displacement[m]"] = variables["positive particle surface displacement"][:,1:v] * case.param.scale.r0
     if case.opt.model == "SPM"
         result["negative particle lithium concentration [mol/m^3]"] = variables["negative particle lithium concentration"][:,1:v] * case.param.scale.cn_max
         result["positive particle lithium concentration [mol/m^3]"] = variables["positive particle lithium concentration"][:,1:v] * case.param.scale.cp_max
