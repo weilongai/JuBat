@@ -1,5 +1,5 @@
 module JuBat
-using LinearAlgebra, SparseArrays, Plots, Parameters, CSV, Infiltrator
+using LinearAlgebra, SparseArrays, Plots, Parameters, CSV
 
 include("Option.jl") 
 include("SetMesh.jl") 
@@ -22,8 +22,9 @@ include("Initialisation.jl")
 include("sP2D.jl")
 include("Citation.jl")
 include("Mechanical.jl")
-
-
+include("parameters/LGM50.jl") 
+include("parameters/Northrop.jl") 
+include("parameters/Enertech.jl")
 export Assemble, ElectrodeDiffusion, ElectrolyteDiffusion, Postprocessing, SetCase, SetMesh, ChooseCell
 export Mesh1D, GetGS, LagrangeBasis, GSweight, ShapeFunction1D, NormaliseParam, StandardVariables
 export SPM, Solve, SPMe

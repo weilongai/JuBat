@@ -30,12 +30,12 @@ function P2D(case::Case, yt::Array{Float64}, t::Float64; jacobi::String)
         M_pe_d, K_pe_d = ElectrodeDiffusion(param.PE, mesh_pp, mesh_pp.nlen, csp_gs, theta_Mp)
         M_ne_p, K_ne_p = ElectrodePotential(param.NE, mesh_ne, mesh_ne.nlen)
         M_pe_p, K_pe_p = ElectrodePotential(param.PE, mesh_pe, mesh_pe.nlen) 
-        M_ne_d = M_ne_d .* param.scale.ts_n / param_dim.scale.t0
-        M_pe_d = M_pe_d .* param.scale.ts_p / param_dim.scale.t0   
+        M_ne_d = M_ne_d .* param.scale.ts_n / param.scale.t0
+        M_pe_d = M_pe_d .* param.scale.ts_p / param.scale.t0   
     end
     M_el_d, K_el_d = ElectrolyteDiffusion(param, mesh_el, mesh_el.nlen, variables)   
     M_el_p, K_el_p = ElectrolytePotential(param, mesh_el, mesh_el.nlen, variables) 
-    M_el_d = M_el_d .* param.scale.te / param_dim.scale.t0  
+    M_el_d = M_el_d .* param.scale.te / param.scale.t0  
 
     # # need to update source term
     K_pot = blockdiag(K_ne_p, K_pe_p, K_el_p)

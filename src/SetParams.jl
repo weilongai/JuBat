@@ -180,11 +180,11 @@ function ChooseCell(CellType::String="LG M50")
     Output - param_dim::Params for all param_dim parameters
 """
     if CellType == "LG M50"
-        include("../src/parameters/LGM50.jl") # pathof(JuBat)
+        param_dim = LGM50()
     elseif CellType == "Northrop"
-        include("../src/parameters/Northrop.jl") # pathof(JuBat)
+        param_dim = Northrop()
     elseif CellType == "Enertech"
-        include("../src/parameters/Enertech.jl") # pathof(JuBat)
+        param_dim = Enertech()
     end
     param_dim.PE.eps_s = 1 - param_dim.PE.eps - param_dim.PE.eps_fi
     param_dim.NE.eps_s = 1 - param_dim.NE.eps - param_dim.NE.eps_fi
